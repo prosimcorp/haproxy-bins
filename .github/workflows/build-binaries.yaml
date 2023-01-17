@@ -1,0 +1,27 @@
+name: 'Build Binaries'
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Execute the script
+        env:
+          ARCH_BUILD: x86_64
+        run: |
+          ./scripts/build-binaries.sh 

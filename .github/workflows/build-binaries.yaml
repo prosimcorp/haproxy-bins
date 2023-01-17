@@ -25,4 +25,5 @@ jobs:
         env:
           ARCH_BUILD: x86_64
         run: |
-          ./scripts/build-binaries.sh 
+          chmod +x ./scripts/build-binaries.sh 
+          bash ./scripts/build-binaries.sh 

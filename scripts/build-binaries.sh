@@ -59,7 +59,7 @@ function install_dependencies() {
     local FUNC_EXIT_CODE=0
 
     # Update package list
-    apt-get update --assume-yes --quiet || FUNC_EXIT_CODE=$?
+    sudo apt-get update --assume-yes --quiet || FUNC_EXIT_CODE=$?
 
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Repository update fails."
@@ -71,7 +71,7 @@ function install_dependencies() {
     LUA_PACKAGE=$(sudo apt-cache search -q 'lua[0-9].[0-9]-dev' | sort | tail -1)
     export LUA_VERSION=${LUA_PACKAGE/-*}
 
-    apt-get install --assume-yes --quiet \
+    sudo apt-get install --assume-yes --quiet \
       linux-headers \
       build-essentials \
       zlib-dev \

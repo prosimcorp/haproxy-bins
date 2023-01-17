@@ -67,17 +67,18 @@ function install_dependencies() {
     fi
 
     #
-    SSL=openssl
-    LUA_PACKAGE=$(sudo apt-cache search -q 'lua[0-9].[0-9]-dev' | sort | tail -1)
-    export LUA_VERSION=${LUA_PACKAGE/-*}
+    LUA_PACKAGE=$(sudo apt-cache search -q 'lua[0-9].[0-9]-dev' | sort | tail -1 | cut -d' ' -f1)
+    export LUA_VERSION=$(echo "${LUA_PACKAGE/-*}" | sed 's/lib//' | xargs)
 
     sudo apt-get install --assume-yes --quiet \
-      linux-headers \
-      build-essentials \
-      zlib-dev \
-      "${SSL}"-dev \
-      "${LUA_PACKAGE}" \
-      pcre2-dev \
+      linux-headers-"$(uname -r)" \
+      build-essential \
+      musl-dev \
+      zlib1g-dev lua-zlib-dev \
+      libssl-dev \
+      libquickfix-dev \
+      "${LUA_PACKAGE}"  \
+      libpcre2-dev lua-rex-pcre2-dev\
       wget || FUNC_EXIT_CODE=$?
 
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
@@ -123,13 +124,20 @@ function check_last_release() {
         return 2
     fi
 
+    OUR_RELEASES=$(git ls-remote --heads --tags "https://github.com/prosimcorp/haproxy-bins/" | \
+          awk '{print $2}' | \
+          grep -E -i 'v[[:digit:]]{1,3}.[[:digit:]]{1,3}(.[[:digit:]]{1,3})?$' | \
+          sed 's#refs/tags/v##' | \
+          sort)
+
+    OUR_RELEASES_COUNT=$(printf "%s" "${OUR_RELEASES}" | wc -w)
+    if [ "${OUR_RELEASES_COUNT}" -eq 0 ]; then
+        echo "[ok] Create release ${LAST_RELEASE}."
+        return 0
+    fi
+
     # Get our last release
-    OUR_LAST_RELEASE=$(git ls-remote --heads --tags "https://github.com/prosimcorp/haproxy-bins/" | \
-      awk '{print $2}' | \
-      grep -E -i 'v[[:digit:]]{1,3}.[[:digit:]]{1,3}(.[[:digit:]]{1,3})?$' | \
-      sed 's#refs/tags/v##' | \
-      sort | \
-      tail -n1 | xargs)
+    OUR_LAST_RELEASE=$(echo "${OUR_RELEASES}" tail -n1 | xargs)
     if [ -z "${OUR_LAST_RELEASE}" ]; then
         echo -e "[X] Get our last release tag of prosimcorp repository fails."
         return 2
@@ -164,7 +172,7 @@ function download_haproxy_code() {
     fi
 
     # Move to inner directory
-    cd haproxy-* || FUNC_EXIT_CODE=$?
+    cd haproxy-"${LAST_RELEASE}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Moving to child directory fails."
         return $FUNC_EXIT_CODE
@@ -205,23 +213,52 @@ function build_binary() {
 #
 function build_x86_64() {
 
+    ls /lib/x86_64-linux-gnu/*.a
+
+    # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
+
+    #   USE_PCRE             : enable use of libpcre for regex. Recommended.
+    #   USE_STATIC_PCRE      : enable static libpcre. Recommended.
+    #   USE_LIBCRYPT         : enable encrypted passwords using -lcrypt
+    #   USE_CRYPT_H          : set it if your system requires including crypt.h
+    #   USE_GETADDRINFO      : use getaddrinfo() to resolve IPv6 host names.
+    #   USE_OPENSSL          : enable use of OpenSSL. Recommended, but see below.
+    #   USE_ENGINE           : enable use of OpenSSL Engine.
+    #   USE_LUA              : enable Lua support.
+    #   USE_ZLIB             : enable zlib library support and disable SLZ
+    #   USE_TFO              : enable TCP fast open. Supported on Linux >= 3.7.
+    #   USE_NS               : enable network namespace support. Supported on Linux >= 2.6.24.
+    #   USE_PROMEX           : enable the Prometheus exporter
+    #   USE_SYSTEMD          : enable sd_notify() support.
+    #   USE_MEMORY_PROFILING : enable the memory profiler. Linux-glibc only.
+
+    #   LUA_INC        : force the include path to lua
+    #   LUA_LD_FLAGS   :
+
     make -j"$(nproc)" \
-      DEBUG="-s" \
-      TARGET=generic \
+      TARGET=linux-glibc \
       ARCH=x86_64 \
-      USE_THREAD=1 \
-      USE_PTHREAD_PSHARED=1 \
-      USE_LIBCRYPT=1 \
-      USE_GETADDRINFO=1 \
-      USE_TFO=1 \
-      USE_NS=1 \
-      USE_OPENSSL=1 \
-      USE_ZLIB=1 \
-      USE_PCRE2=1 \
-      USE_PCRE2_JIT=1 \
-      USE_LUA=1 \
+      USE_THREAD="" \
+      USE_PTHREAD_PSHARED="" \
+      USE_LIBCRYPT="" \
+      USE_CRYPT_H="" \
+      USE_OPENSSL="" \
+      USE_GETADDRINFO="" \
+      USE_TFO="" \
+      USE_NS="" \
+      USE_ZLIB="" \
+      USE_PCRE= \
+      USE_STATIC_PCRE2=1 \
+      PCRE2_LIB="-lpcre2-32" \
       LUA_INC="/usr/include/$LUA_VERSION" \
-      LUA_LD_FLAGS="-lz -L/usr/lib/$LUA_VERSION -static" || FUNC_EXIT_CODE=$?
+      LUA_LDFLAGS="-L/usr/lib/$LUA_VERSION" \
+      OPTIONS_LDFLAGS="" || FUNC_EXIT_CODE=$?
+#      ZLIB_LIB="libz.a" \
+
+#      USE_LUA=1 \
+#      LUA_LD_FLAGS="-lz -L/usr/lib/$LUA_VERSION -static" || FUNC_EXIT_CODE=$?
+
+    ldd haproxy
 
     return $FUNC_EXIT_CODE
 }

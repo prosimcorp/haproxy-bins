@@ -9,9 +9,8 @@ FLAG_HELP=$1
 ########################################################################################################################
 ### DEFINE SCRIPT PARAMETERS ###
 ########################################################################################################################
-LAST_REPO_NAME=""
-LAST_MINOR=""
 LAST_RELEASE=""
+# export PCRE2_BUILD_DIR
 
 ########################################################################################################################
 ### DEFINE SCRIPT FUNCTIONS ###
@@ -53,44 +52,8 @@ function check_env() {
 }
 
 #
-#function install_dependencies() {
-#    echo -e "\n================ Install dependencies ================\n"
-#    local FUNC_EXIT_CODE=0
-#
-#    # Update package list
-#    sudo apt-get update --assume-yes --quiet || FUNC_EXIT_CODE=$?
-#
-#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-#        echo -e "[X] Repository update fails."
-#        return $FUNC_EXIT_CODE
-#    fi
-#
-#    #
-#    LUA_PACKAGE=$(sudo apt-cache search -q 'lua[0-9].[0-9]-dev' | sort | tail -1 | cut -d' ' -f1)
-#    export LUA_VERSION=$(echo "${LUA_PACKAGE/-*}" | sed 's/lib//' | xargs)
-#
-#    sudo apt-get install --assume-yes --quiet \
-#      linux-headers-"$(uname -r)" \
-#      build-essential \
-#      musl-dev \
-#      zlib1g-dev lua-zlib-dev \
-#      libssl-dev \
-#      libquickfix-dev \
-#      "${LUA_PACKAGE}"  \
-#      libpcre2-dev lua-rex-pcre2-dev\
-#      wget || FUNC_EXIT_CODE=$?
-#
-#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-#        echo -e "[X] Dependencies installation fails."
-#        return $FUNC_EXIT_CODE
-#    fi
-#
-#    return 0
-#}
-
-#
-function check_last_pcre2_release() {
-    echo -e "\n================ Check last release ================\n"
+function get_last_pcre2_release() {
+    echo -e "\n================ Get last release ================\n"
     local FUNC_EXIT_CODE
 
     # Get last release tag
@@ -105,44 +68,22 @@ function check_last_pcre2_release() {
         return 2
     fi
 
-    # Get our last release
-    OUR_LAST_RELEASE=$(echo "${OUR_RELEASES}" tail -n1 | xargs)
-    if [ -z "${OUR_LAST_RELEASE}" ]; then
-        echo -e "[X] Get our last release tag of prosimcorp repository fails."
-        return 2
-    fi
-
-    if [ "${OUR_LAST_RELEASE}" -eq "${LAST_RELEASE}" ]; then
-        echo "[ok] Release ${LAST_RELEASE} already exist."
-        return 1
-    fi
-
-    return 0
-}
-
-function download_pcre2_code() {
-    echo -e "\n================ Download PCRE code ================\n"
-    local FUNC_EXIT_CODE=0
-
-    https://github.com/PCRE2Project/pcre2/releases/latest/download/pcre2-10.42.tar.gz
-
     # Download the package
-    # Ref: # http://www.haproxy.org/download/2.7/src/haproxy-2.7.1.tar.gz
-    wget -q "http://www.haproxy.org/download/${LAST_MINOR}/src/haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    wget -q "https://github.com/PCRE2Project/pcre2/releases/download/${LAST_RELEASE}/${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Download of 'haproxy-${LAST_RELEASE}.tar.gz' fails."
+        echo -e "[X] Download of '${LAST_RELEASE}.tar.gz' fails."
         return $FUNC_EXIT_CODE
     fi
 
     # Untar the last release
-    tar -xvf "haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    tar -xvf "${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Untar of 'haproxy-${LAST_RELEASE}.tar.gz' fails."
+        echo -e "[X] Untar of '${LAST_RELEASE}.tar.gz' fails."
         return $FUNC_EXIT_CODE
     fi
 
     # Move to inner directory
-    cd haproxy-"${LAST_RELEASE}" || FUNC_EXIT_CODE=$?
+    cd "${LAST_RELEASE}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Moving to child directory fails."
         return $FUNC_EXIT_CODE
@@ -152,38 +93,8 @@ function download_pcre2_code() {
 }
 
 #
-function download_haproxy_code() {
-    echo -e "\n================ Download haproxy code ================\n"
-    local FUNC_EXIT_CODE=0
-
-    # Download the package
-    # Ref: # http://www.haproxy.org/download/2.7/src/haproxy-2.7.1.tar.gz
-    wget -q "http://www.haproxy.org/download/${LAST_MINOR}/src/haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Download of 'haproxy-${LAST_RELEASE}.tar.gz' fails."
-        return $FUNC_EXIT_CODE
-    fi
-
-    # Untar the last release
-    tar -xvf "haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Untar of 'haproxy-${LAST_RELEASE}.tar.gz' fails."
-        return $FUNC_EXIT_CODE
-    fi
-
-    # Move to inner directory
-    cd haproxy-"${LAST_RELEASE}" || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Moving to child directory fails."
-        return $FUNC_EXIT_CODE
-    fi
-
-    return 0
-}
-
-#
-function build_binary() {
-  echo -e "\n================ Build binary ================\n"
+function build_static_library() {
+  echo -e "\n================ Build static library ================\n"
   local  FUNC_EXIT_CODE=0
 
   case "${ARCH_BUILD}" in
@@ -197,7 +108,7 @@ function build_binary() {
       ;;
 
     *)
-      printf "%s" "[INFO] Env variable ARCH_BUILD not defined"
+      printf "%s" "[X] Env variable ARCH_BUILD not defined"
       return 1
       ;;
   esac
@@ -213,64 +124,44 @@ function build_binary() {
 #
 function build_x86_64() {
 
-    ls /lib/x86_64-linux-gnu/*.a
+    export PCRE2_BUILD_DIR="$(pwd)/${LAST_RELEASE}/build"
 
-    # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
+    mkdir -p $PCRE2_BUILD_DIR || FUNC_EXIT_CODE=$?
 
-    #   USE_PCRE             : enable use of libpcre for regex. Recommended.
-    #   USE_STATIC_PCRE      : enable static libpcre. Recommended.
-    #   USE_LIBCRYPT         : enable encrypted passwords using -lcrypt
-    #   USE_CRYPT_H          : set it if your system requires including crypt.h
-    #   USE_GETADDRINFO      : use getaddrinfo() to resolve IPv6 host names.
-    #   USE_OPENSSL          : enable use of OpenSSL. Recommended, but see below.
-    #   USE_ENGINE           : enable use of OpenSSL Engine.
-    #   USE_LUA              : enable Lua support.
-    #   USE_ZLIB             : enable zlib library support and disable SLZ
-    #   USE_TFO              : enable TCP fast open. Supported on Linux >= 3.7.
-    #   USE_NS               : enable network namespace support. Supported on Linux >= 2.6.24.
-    #   USE_PROMEX           : enable the Prometheus exporter
-    #   USE_SYSTEMD          : enable sd_notify() support.
-    #   USE_MEMORY_PROFILING : enable the memory profiler. Linux-glibc only.
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Creation of directory for building PCRE2 fails."
+        return $FUNC_EXIT_CODE
+    fi
 
-    #   LUA_INC        : force the include path to lua
-    #   LUA_LD_FLAGS   :
+    CFLAGS='-std=c18 -O2 -Wall -Wextra -Wpedantic -Wconversion'
+    ./configure --prefix=$PCRE2_BUILD_DIR --disable-shared || FUNC_EXIT_CODE=$?
 
-    make -j"$(nproc)" \
-      TARGET=linux-glibc \
-      ARCH=x86_64 \
-      USE_THREAD="" \
-      USE_PTHREAD_PSHARED="" \
-      USE_LIBCRYPT="" \
-      USE_CRYPT_H="" \
-      USE_OPENSSL="" \
-      USE_GETADDRINFO="" \
-      USE_TFO="" \
-      USE_NS="" \
-      USE_ZLIB="" \
-      USE_PCRE= \
-      USE_STATIC_PCRE2=1 \
-      PCRE2_LIB="-lpcre2-32" \
-      LUA_INC="/usr/include/$LUA_VERSION" \
-      LUA_LDFLAGS="-L/usr/lib/$LUA_VERSION" \
-      OPTIONS_LDFLAGS="" || FUNC_EXIT_CODE=$?
-#      ZLIB_LIB="libz.a" \
+     if [ $FUNC_EXIT_CODE -ne 0 ]; then
+         echo -e "[X] Execution of configuration script fails."
+         return $FUNC_EXIT_CODE
+     fi
 
-#      USE_LUA=1 \
-#      LUA_LD_FLAGS="-lz -L/usr/lib/$LUA_VERSION -static" || FUNC_EXIT_CODE=$?
 
-    ldd haproxy
+    make -j"$(nproc)" || FUNC_EXIT_CODE=$?
+
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Execution of makefile fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+
+    make -j"$(nproc)" install || FUNC_EXIT_CODE=$?
+
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Execution of makefile install stage fails."
+        return $FUNC_EXIT_CODE
+    fi
 
     return $FUNC_EXIT_CODE
 }
 
 #
 function build_arm64() {
-    return 0
-}
-
-#
-function create_release() {
-    ls # To see if everything is fine
     return 0
 }
 
@@ -292,7 +183,7 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-    check_last_haproxy_release || FUNC_EXIT_CODE=$?
+    get_last_pcre2_release || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         if [ $FUNC_EXIT_CODE -eq 1 ]; then
             return 0
@@ -300,20 +191,13 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-    download_haproxy_code || FUNC_EXIT_CODE=$?
+    build_static_library || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi
 
-    build_binary || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        return $FUNC_EXIT_CODE
-    fi
-
-    create_release || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        return $FUNC_EXIT_CODE
-    fi
+    ls -la
+    ls -la $PCRE2_BUILD_DIR
 
     echo -e "\n#### End of: Build static library pcre2 script ####"
     echo -e "################################################################"

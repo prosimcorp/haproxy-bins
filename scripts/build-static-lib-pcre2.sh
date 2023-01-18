@@ -12,14 +12,13 @@ FLAG_HELP=$1
 LAST_REPO_NAME=""
 LAST_MINOR=""
 LAST_RELEASE=""
-OUR_LAST_RELEASE=""
 
 ########################################################################################################################
 ### DEFINE SCRIPT FUNCTIONS ###
 ########################################################################################################################
 function usage() {
     echo -e "################################################################"
-    echo -e "Usage: bash build-binaries.sh"
+    echo -e "Usage: bash build-static-lib-pcre2.sh"
     echo -e "Dependencies:"
     echo -e "  Environment variables:"
     echo -e "    ARCH_BUILD: architecture that you want to build."
@@ -54,86 +53,56 @@ function check_env() {
 }
 
 #
-function install_dependencies() {
-    echo -e "\n================ Install dependencies ================\n"
-    local FUNC_EXIT_CODE=0
-
-    # Update package list
-    sudo apt-get update --assume-yes --quiet || FUNC_EXIT_CODE=$?
-
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Repository update fails."
-        return $FUNC_EXIT_CODE
-    fi
-
-    #
-    LUA_PACKAGE=$(sudo apt-cache search -q 'lua[0-9].[0-9]-dev' | sort | tail -1 | cut -d' ' -f1)
-    export LUA_VERSION=$(echo "${LUA_PACKAGE/-*}" | sed 's/lib//' | xargs)
-
-    sudo apt-get install --assume-yes --quiet \
-      linux-headers-"$(uname -r)" \
-      build-essential \
-      musl-dev \
-      zlib1g-dev lua-zlib-dev \
-      libssl-dev \
-      libquickfix-dev \
-      "${LUA_PACKAGE}"  \
-      libpcre2-dev lua-rex-pcre2-dev\
-      wget || FUNC_EXIT_CODE=$?
-
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Dependencies installation fails."
-        return $FUNC_EXIT_CODE
-    fi
-
-    return 0
-}
+#function install_dependencies() {
+#    echo -e "\n================ Install dependencies ================\n"
+#    local FUNC_EXIT_CODE=0
+#
+#    # Update package list
+#    sudo apt-get update --assume-yes --quiet || FUNC_EXIT_CODE=$?
+#
+#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+#        echo -e "[X] Repository update fails."
+#        return $FUNC_EXIT_CODE
+#    fi
+#
+#    #
+#    LUA_PACKAGE=$(sudo apt-cache search -q 'lua[0-9].[0-9]-dev' | sort | tail -1 | cut -d' ' -f1)
+#    export LUA_VERSION=$(echo "${LUA_PACKAGE/-*}" | sed 's/lib//' | xargs)
+#
+#    sudo apt-get install --assume-yes --quiet \
+#      linux-headers-"$(uname -r)" \
+#      build-essential \
+#      musl-dev \
+#      zlib1g-dev lua-zlib-dev \
+#      libssl-dev \
+#      libquickfix-dev \
+#      "${LUA_PACKAGE}"  \
+#      libpcre2-dev lua-rex-pcre2-dev\
+#      wget || FUNC_EXIT_CODE=$?
+#
+#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+#        echo -e "[X] Dependencies installation fails."
+#        return $FUNC_EXIT_CODE
+#    fi
+#
+#    return 0
+#}
 
 #
-function check_last_haproxy_release() {
+function check_last_pcre2_release() {
     echo -e "\n================ Check last release ================\n"
     local FUNC_EXIT_CODE
 
-    # Get the last minor release repository
-    LAST_REPO_NAME=$(wget -qO- 'http://git.haproxy.org/?a=project_index' | \
-      grep -E -i "haproxy-([[:digit:].]+).git" | \
-      cut -d' ' -f1 | \
-      sort | \
-      tail -n1 | xargs)
-    if [ -z "${LAST_REPO_NAME}" ]; then
-        echo -e "[X] Get name of haproxy last repository fails."
-        return 2
-    fi
-
-    # Get last minor version
-    LAST_MINOR=$(echo "${LAST_REPO_NAME}" | sed -E 's/haproxy-(.*).git/\1/' | xargs)
-    if [ -z "${LAST_MINOR}" ]; then
-        echo -e "[X] Get last minor version of haproxy repository fails."
-        return 2
-    fi
-
     # Get last release tag
-    LAST_RELEASE=$(git ls-remote --heads --tags "http://git.haproxy.org/git/${LAST_REPO_NAME}/" | \
+    LAST_RELEASE=$(git ls-remote --heads --tags "https://github.com/PCRE2Project/pcre2.git" | \
       awk '{print $2}' | \
-      grep -E -i 'v[[:digit:]]{1,3}.[[:digit:]]{1,3}(.[[:digit:]]{1,3})?$' | \
-      sed 's#refs/tags/v##' | \
+      grep -E -i 'pcre2-[[:digit:]]{1,3}.[[:digit:]]{1,3}(.[[:digit:]]{1,3})?$' | \
+      sed 's#refs/tags/##' | \
       sort  | \
       tail -n1 | xargs)
     if [ -z "${LAST_RELEASE}" ]; then
-        echo -e "[X] Get last release tag of haproxy repository fails."
+        echo -e "[X] Get last release tag of P repository fails."
         return 2
-    fi
-
-    OUR_RELEASES=$(git ls-remote --heads --tags "https://github.com/prosimcorp/haproxy-bins/" | \
-          awk '{print $2}' | \
-          grep -E -i 'v[[:digit:]]{1,3}.[[:digit:]]{1,3}(.[[:digit:]]{1,3})?$' | \
-          sed 's#refs/tags/v##' | \
-          sort)
-
-    OUR_RELEASES_COUNT=$(printf "%s" "${OUR_RELEASES}" | wc -w)
-    if [ "${OUR_RELEASES_COUNT}" -eq 0 ]; then
-        echo "[ok] Create release ${LAST_RELEASE}."
-        return 0
     fi
 
     # Get our last release
@@ -146,6 +115,37 @@ function check_last_haproxy_release() {
     if [ "${OUR_LAST_RELEASE}" -eq "${LAST_RELEASE}" ]; then
         echo "[ok] Release ${LAST_RELEASE} already exist."
         return 1
+    fi
+
+    return 0
+}
+
+function download_pcre2_code() {
+    echo -e "\n================ Download PCRE code ================\n"
+    local FUNC_EXIT_CODE=0
+
+    https://github.com/PCRE2Project/pcre2/releases/latest/download/pcre2-10.42.tar.gz
+
+    # Download the package
+    # Ref: # http://www.haproxy.org/download/2.7/src/haproxy-2.7.1.tar.gz
+    wget -q "http://www.haproxy.org/download/${LAST_MINOR}/src/haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Download of 'haproxy-${LAST_RELEASE}.tar.gz' fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    # Untar the last release
+    tar -xvf "haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Untar of 'haproxy-${LAST_RELEASE}.tar.gz' fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    # Move to inner directory
+    cd haproxy-"${LAST_RELEASE}" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Moving to child directory fails."
+        return $FUNC_EXIT_CODE
     fi
 
     return 0
@@ -277,7 +277,7 @@ function create_release() {
 #
 function main() {
     echo -e "################################################################"
-    echo -e "#### Build binaries script ####"
+    echo -e "#### Build static library pcre2 script ####"
     local FUNC_EXIT_CODE=0
 
     show_env
@@ -315,7 +315,7 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-    echo -e "\n#### End of: Build binaries script ####"
+    echo -e "\n#### End of: Build static library pcre2 script ####"
     echo -e "################################################################"
 
     return 0
@@ -332,7 +332,7 @@ fi
 main
 EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ]; then
-    echo -e "[X] Script 'build-binaries.sh' fails, exit code: ${EXIT_CODE}."
+    echo -e "[X] Script 'build-static-lib-pcre2.sh' fails, exit code: ${EXIT_CODE}."
     exit $EXIT_CODE
 fi
 

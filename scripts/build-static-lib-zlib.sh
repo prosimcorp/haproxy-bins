@@ -13,14 +13,14 @@ FLAG_HELP=$1
 ### DEFINE SCRIPT PARAMETERS ###
 ########################################################################################################################
 LAST_RELEASE=""
-# export PCRE2_BUILD_DIR
+# export ZLIB_BUILD_DIR
 
 ########################################################################################################################
 ### DEFINE SCRIPT FUNCTIONS ###
 ########################################################################################################################
 function usage() {
     echo -e "################################################################"
-    echo -e "Usage: bash build-static-lib-pcre2.sh"
+    echo -e "Usage: bash build-static-lib-zlib.sh"
     echo -e "Dependencies:"
     echo -e "  Environment variables:"
     echo -e "    ARCH_BUILD: architecture that you want to build."
@@ -55,38 +55,38 @@ function check_env() {
 }
 
 #
-function get_last_pcre2_release() {
+function get_last_zlib_release() {
     echo -e "\n================ Get last release ================\n"
     local FUNC_EXIT_CODE
 
     # Get last release tag
-    LAST_RELEASE=$(git ls-remote --heads --tags "https://github.com/PCRE2Project/pcre2.git" | \
+    LAST_RELEASE=$(git ls-remote --heads --tags "https://github.com/madler/zlib.git" | \
       awk '{print $2}' | \
-      grep -E -i 'pcre2-[[:digit:]]{1,3}.[[:digit:]]{1,3}(.[[:digit:]]{1,3})?$' | \
-      sed 's#refs/tags/##' | \
+      grep -E -i 'v[[:digit:]]{1,3}.[[:digit:]]{1,3}(.[[:digit:]]{1,3})?$' | \
+      sed 's#refs/tags/v##' | \
       sort --version-sort | \
       tail -n1 | xargs)
     if [ -z "${LAST_RELEASE}" ]; then
-        echo -e "[X] Get last release tag of P repository fails."
+        echo -e "[X] Get last release tag of Zlib repository fails."
         return 2
     fi
 
     # Download the package
-    wget -q "https://github.com/PCRE2Project/pcre2/releases/download/${LAST_RELEASE}/${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    wget -q "https://github.com/madler/zlib/releases/download/v${LAST_RELEASE}/zlib-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Download of '${LAST_RELEASE}.tar.gz' fails."
+        echo -e "[X] Download of 'zlib-${LAST_RELEASE}.tar.gz' fails."
         return $FUNC_EXIT_CODE
     fi
 
     # Untar the last release
-    tar -xvf "${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    tar -xvf "zlib-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Untar of '${LAST_RELEASE}.tar.gz' fails."
+        echo -e "[X] Untar of 'zlib-${LAST_RELEASE}.tar.gz' fails."
         return $FUNC_EXIT_CODE
     fi
 
     # Move to inner directory
-    cd "${LAST_RELEASE}" || FUNC_EXIT_CODE=$?
+    cd "zlib-${LAST_RELEASE}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Moving to child directory fails."
         return $FUNC_EXIT_CODE
@@ -127,17 +127,17 @@ function build_static_library() {
 #
 function build_x86_64() {
 
-    export PCRE2_BUILD_DIR="${SELF_PATH}/../${LAST_RELEASE}/build"
+    export ZLIB_BUILD_DIR="${SELF_PATH}/../zlib-${LAST_RELEASE}/build"
 
-    mkdir -p "${PCRE2_BUILD_DIR}" || FUNC_EXIT_CODE=$?
+    mkdir -p "${ZLIB_BUILD_DIR}" || FUNC_EXIT_CODE=$?
 
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Creation of directory for building PCRE2 fails."
+        echo -e "[X] Creation of directory for building ZLIB fails."
         return $FUNC_EXIT_CODE
     fi
 
     CFLAGS='-std=c18 -O2 -Wall -Wextra -Wpedantic -Wconversion'
-    ./configure --prefix="${PCRE2_BUILD_DIR}" --disable-shared || FUNC_EXIT_CODE=$?
+    ./configure --static --prefix="${ZLIB_BUILD_DIR}" || FUNC_EXIT_CODE=$?
 
      if [ $FUNC_EXIT_CODE -ne 0 ]; then
          echo -e "[X] Execution of configuration script fails."
@@ -170,7 +170,7 @@ function build_arm64() {
 #
 function main() {
     echo -e "################################################################"
-    echo -e "#### Build static library pcre2 script ####"
+    echo -e "#### Build static library zlib script ####"
     local FUNC_EXIT_CODE=0
 
     show_env
@@ -185,7 +185,7 @@ function main() {
 #        return $FUNC_EXIT_CODE
 #    fi
 
-    get_last_pcre2_release || FUNC_EXIT_CODE=$?
+    get_last_zlib_release || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         if [ $FUNC_EXIT_CODE -eq 1 ]; then
             return 0
@@ -199,9 +199,9 @@ function main() {
     fi
 
     ls -la
-    ls -la $PCRE2_BUILD_DIR
+    ls -la "$ZLIB_BUILD_DIR"
 
-    echo -e "\n#### End of: Build static library pcre2 script ####"
+    echo -e "\n#### End of: Build static library zlib script ####"
     echo -e "################################################################"
 
     return 0
@@ -218,7 +218,7 @@ fi
 main
 EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ]; then
-    echo -e "[X] Script 'build-static-lib-pcre2.sh' fails, exit code: ${EXIT_CODE}."
+    echo -e "[X] Script 'build-static-lib-zlib.sh' fails, exit code: ${EXIT_CODE}."
     exit $EXIT_CODE
 fi
 

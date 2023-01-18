@@ -308,6 +308,11 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
+    bash "${SELF_PATH}/build-static-lib-zlib.sh" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        return $FUNC_EXIT_CODE
+    fi
+
     download_haproxy_code || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE

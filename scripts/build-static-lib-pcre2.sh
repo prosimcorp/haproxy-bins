@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -o pipefail
 
+# Defined to avoid relative-pathing issues
+SELF_PATH=$(cd $(dirname "$0"); pwd)
+
 ########################################################################################################################
 ### GET SCRIPT PARAMETERS ###
 ########################################################################################################################
@@ -124,9 +127,9 @@ function build_static_library() {
 #
 function build_x86_64() {
 
-    export PCRE2_BUILD_DIR="$(pwd)/${LAST_RELEASE}/build"
+    export PCRE2_BUILD_DIR="${SELF_PATH}/../${LAST_RELEASE}/build"
 
-    mkdir -p $PCRE2_BUILD_DIR || FUNC_EXIT_CODE=$?
+    mkdir -p "${PCRE2_BUILD_DIR}" || FUNC_EXIT_CODE=$?
 
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Creation of directory for building PCRE2 fails."
@@ -134,7 +137,7 @@ function build_x86_64() {
     fi
 
     CFLAGS='-std=c18 -O2 -Wall -Wextra -Wpedantic -Wconversion'
-    ./configure --prefix=$PCRE2_BUILD_DIR --disable-shared || FUNC_EXIT_CODE=$?
+    ./configure --prefix="${PCRE2_BUILD_DIR}" --disable-shared || FUNC_EXIT_CODE=$?
 
      if [ $FUNC_EXIT_CODE -ne 0 ]; then
          echo -e "[X] Execution of configuration script fails."
@@ -178,10 +181,10 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-    install_dependencies || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        return $FUNC_EXIT_CODE
-    fi
+#    install_dependencies || FUNC_EXIT_CODE=$?
+#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+#        return $FUNC_EXIT_CODE
+#    fi
 
     get_last_pcre2_release || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then

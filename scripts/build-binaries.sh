@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -o pipefail
 
+# Defined to avoid relative-pathing issues
+SELF_PATH=$(cd $(dirname "$0"); pwd)
+
 ########################################################################################################################
 ### GET SCRIPT PARAMETERS ###
 ########################################################################################################################
@@ -300,7 +303,7 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-    bash ./build-static-lib-pcre2.sh || FUNC_EXIT_CODE=$?
+    bash "${SELF_PATH}/build-static-lib-pcre2.sh" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi

@@ -4,6 +4,10 @@ set -o pipefail
 # Defined to avoid relative-pathing issues
 SELF_PATH=$(cd $(dirname "$0"); pwd)
 
+export PCRE2_BUILD_DIR
+export ZLIB_BUILD_DIR
+export OPENSSL_BUILD_DIR
+
 ########################################################################################################################
 ### GET SCRIPT PARAMETERS ###
 ########################################################################################################################
@@ -16,6 +20,7 @@ LAST_REPO_NAME=""
 LAST_MINOR=""
 LAST_RELEASE=""
 OUR_LAST_RELEASE=""
+
 
 ########################################################################################################################
 ### DEFINE SCRIPT FUNCTIONS ###
@@ -220,23 +225,28 @@ function build_x86_64() {
 
     # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
 
-    #   USE_PCRE             : enable use of libpcre for regex. Recommended.
-    #   USE_STATIC_PCRE      : enable static libpcre. Recommended.
-    #   USE_LIBCRYPT         : enable encrypted passwords using -lcrypt
-    #   USE_CRYPT_H          : set it if your system requires including crypt.h
-    #   USE_GETADDRINFO      : use getaddrinfo() to resolve IPv6 host names.
-    #   USE_OPENSSL          : enable use of OpenSSL. Recommended, but see below.
-    #   USE_ENGINE           : enable use of OpenSSL Engine.
-    #   USE_LUA              : enable Lua support.
-    #   USE_ZLIB             : enable zlib library support and disable SLZ
-    #   USE_TFO              : enable TCP fast open. Supported on Linux >= 3.7.
-    #   USE_NS               : enable network namespace support. Supported on Linux >= 2.6.24.
-    #   USE_PROMEX           : enable the Prometheus exporter
-    #   USE_SYSTEMD          : enable sd_notify() support.
-    #   USE_MEMORY_PROFILING : enable the memory profiler. Linux-glibc only.
+    # USE_PCRE             : enable use of libpcre for regex. Recommended.
+    # USE_STATIC_PCRE      : enable static libpcre. Recommended.
+    # USE_LIBCRYPT         : enable encrypted passwords using -lcrypt
+    # USE_CRYPT_H          : set it if your system requires including crypt.h
+    # USE_GETADDRINFO      : use getaddrinfo() to resolve IPv6 host names.
+    # USE_OPENSSL          : enable use of OpenSSL. Recommended, but see below.
+    # USE_ENGINE           : enable use of OpenSSL Engine.
+    # USE_LUA              : enable Lua support.
+    # USE_ZLIB             : enable zlib library support and disable SLZ
+    # USE_TFO              : enable TCP fast open. Supported on Linux >= 3.7.
+    # USE_NS               : enable network namespace support. Supported on Linux >= 2.6.24.
+    # USE_PROMEX           : enable the Prometheus exporter
+    # USE_SYSTEMD          : enable sd_notify() support.
+    # USE_MEMORY_PROFILING : enable the memory profiler. Linux-glibc only.
 
-    #   LUA_INC        : force the include path to lua
-    #   LUA_LD_FLAGS   :
+    # LUA_INC        : force the include path to lua
+    # LUA_LD_FLAGS   :
+
+    # ADDLIB may be used to complete the library list in the form -Lpath -llib
+
+    #make TARGET=linux2628 USE_STATIC_PCRE=1   ADDLIB=-ldl -lzlib PCREDIR=$PCREDIR
+    #make install
 
     make -j"$(nproc)" \
       TARGET=linux-glibc \
@@ -245,19 +255,26 @@ function build_x86_64() {
       USE_PTHREAD_PSHARED="" \
       USE_LIBCRYPT="" \
       USE_CRYPT_H="" \
-      USE_OPENSSL="" \
       USE_GETADDRINFO="" \
       USE_TFO="" \
       USE_NS="" \
-      USE_ZLIB="" \
-      USE_PCRE= \
+      USE_OPENSSL=1 \
+      SSL_INC="$OPENSSL_BUILD_DIR/include" \
+      SSL_LIB="$OPENSSL_BUILD_DIR/lib" \
+      USE_ZLIB=1 \
+      ZLIB_LIB="$ZLIB_BUILD_DIR/lib" \
+      ZLIB_INC="$ZLIB_BUILD_DIR/include" \
       USE_STATIC_PCRE2=1 \
-      PCRE2_LIB="-lpcre2-32" \
-      LUA_INC="/usr/include/$LUA_VERSION" \
-      LUA_LDFLAGS="-L/usr/lib/$LUA_VERSION" \
-      OPTIONS_LDFLAGS="" || FUNC_EXIT_CODE=$?
-#      ZLIB_LIB="libz.a" \
+      PCRE2_LIB="$PCRE2_BUILD_DIR/lib" \
+      PCRE2_INC="$PCRE2_BUILD_DIR/include" \
+      LDFLAGS="-static -pthread -ldl"
 
+
+      #ADDLIB="-ldl -lzlib"
+      #LUA_INC="/usr/include/$LUA_VERSION" \
+      #LUA_LDFLAGS="-L/usr/lib/$LUA_VERSION" \
+      #OPTIONS_LDFLAGS="" || FUNC_EXIT_CODE=$?
+#      ZLIB_LIB="libz.a" \
 #      USE_LUA=1 \
 #      LUA_LD_FLAGS="-lz -L/usr/lib/$LUA_VERSION -static" || FUNC_EXIT_CODE=$?
 
@@ -309,6 +326,11 @@ function main() {
     fi
 
     bash "${SELF_PATH}/build-static-lib-zlib.sh" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        return $FUNC_EXIT_CODE
+    fi
+
+    bash "${SELF_PATH}/build-static-lib-openssl.sh" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi

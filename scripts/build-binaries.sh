@@ -260,7 +260,7 @@ function build_x86_64() {
       USE_NS="" \
       USE_OPENSSL=1 \
       SSL_INC="$OPENSSL_BUILD_DIR/include" \
-      SSL_LIB="$OPENSSL_BUILD_DIR/lib" \
+      SSL_LIB="$OPENSSL_BUILD_DIR/lib64" \
       USE_ZLIB=1 \
       ZLIB_LIB="$ZLIB_BUILD_DIR/lib" \
       ZLIB_INC="$ZLIB_BUILD_DIR/include" \

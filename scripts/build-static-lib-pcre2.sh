@@ -2,7 +2,7 @@
 set -o pipefail
 
 # Defined to avoid relative-pathing issues
-SELF_PATH=$(cd $(dirname "$0"); pwd)
+SELF_PATH=$(cd "$(dirname "$0")"; pwd)
 
 ########################################################################################################################
 ### GET SCRIPT PARAMETERS ###
@@ -127,7 +127,7 @@ function build_static_library() {
 #
 function build_x86_64() {
 
-    export PCRE2_BUILD_DIR="${SELF_PATH}/../${LAST_RELEASE}/build"
+    export PCRE2_BUILD_DIR="${SELF_PATH}/../libs/build/${LAST_RELEASE}"
 
     mkdir -p "${PCRE2_BUILD_DIR}" || FUNC_EXIT_CODE=$?
 
@@ -179,11 +179,6 @@ function main() {
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi
-
-#    install_dependencies || FUNC_EXIT_CODE=$?
-#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-#        return $FUNC_EXIT_CODE
-#    fi
 
     get_last_pcre2_release || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then

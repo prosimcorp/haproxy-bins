@@ -127,7 +127,7 @@ function build_static_library() {
 #
 function build_x86_64() {
 
-    export ZLIB_BUILD_DIR="${SELF_PATH}/../zlib-${LAST_RELEASE}/build"
+    export ZLIB_BUILD_DIR="${SELF_PATH}/../libs/build/zlib-${LAST_RELEASE}"
 
     mkdir -p "${ZLIB_BUILD_DIR}" || FUNC_EXIT_CODE=$?
 

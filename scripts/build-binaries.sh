@@ -81,16 +81,56 @@ function install_dependencies() {
     sudo apt-get install --assume-yes --quiet \
       linux-headers-"$(uname -r)" \
       build-essential \
-      musl-dev \
-      zlib1g-dev lua-zlib-dev \
-      libssl-dev \
-      libquickfix-dev \
-      "${LUA_PACKAGE}"  \
-      libpcre2-dev lua-rex-pcre2-dev\
       wget || FUNC_EXIT_CODE=$?
+
+      #musl-dev \
+      #zlib1g-dev lua-zlib-dev \
+      #libssl-dev \
+      #libquickfix-dev \
+      #"${LUA_PACKAGE}"  \
+      #libpcre2-dev lua-rex-pcre2-dev\
 
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Dependencies installation fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    return 0
+}
+
+function build_libraries() {
+
+    echo -e "\n================ Build libraries ================\n"
+    local FUNC_EXIT_CODE=0
+
+    # Create the directory that contains the build of all libraries
+    mkdir -p "${SELF_PATH}/libs/build" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Creation of libs/build directory fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    # Create a file to store data about lib versions
+    touch "${SELF_PATH}/libs/info"
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Creation of libs info file fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    # Execute the compilation process
+    bash "${SELF_PATH}/build-static-lib-pcre2.sh" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Creation of libs/build directory fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    bash "${SELF_PATH}/build-static-lib-zlib.sh" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        return $FUNC_EXIT_CODE
+    fi
+
+    bash "${SELF_PATH}/build-static-lib-openssl.sh" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi
 
@@ -220,56 +260,35 @@ function build_binary() {
 
 #
 function build_x86_64() {
-
-    ls /lib/x86_64-linux-gnu/*.a
+    ZLIB_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "zlib-*" -print0)"
+    PCRE2_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "pcre2-*" -print0)"
+    OPENSSL_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "openssl-*" -print0)"
 
     # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
-
-    # USE_PCRE             : enable use of libpcre for regex. Recommended.
-    # USE_STATIC_PCRE      : enable static libpcre. Recommended.
-    # USE_LIBCRYPT         : enable encrypted passwords using -lcrypt
-    # USE_CRYPT_H          : set it if your system requires including crypt.h
-    # USE_GETADDRINFO      : use getaddrinfo() to resolve IPv6 host names.
-    # USE_OPENSSL          : enable use of OpenSSL. Recommended, but see below.
-    # USE_ENGINE           : enable use of OpenSSL Engine.
-    # USE_LUA              : enable Lua support.
-    # USE_ZLIB             : enable zlib library support and disable SLZ
-    # USE_TFO              : enable TCP fast open. Supported on Linux >= 3.7.
-    # USE_NS               : enable network namespace support. Supported on Linux >= 2.6.24.
-    # USE_PROMEX           : enable the Prometheus exporter
-    # USE_SYSTEMD          : enable sd_notify() support.
-    # USE_MEMORY_PROFILING : enable the memory profiler. Linux-glibc only.
-
-    # LUA_INC        : force the include path to lua
-    # LUA_LD_FLAGS   :
-
-    # ADDLIB may be used to complete the library list in the form -Lpath -llib
-
-    #make TARGET=linux2628 USE_STATIC_PCRE=1   ADDLIB=-ldl -lzlib PCREDIR=$PCREDIR
-    #make install
-
     make -j"$(nproc)" \
       TARGET=linux-glibc \
       ARCH=x86_64 \
-      USE_THREAD="" \
-      USE_PTHREAD_PSHARED="" \
-      USE_LIBCRYPT="" \
-      USE_CRYPT_H="" \
-      USE_GETADDRINFO="" \
-      USE_TFO="" \
-      USE_NS="" \
-      USE_OPENSSL=1 \
-      SSL_INC="$OPENSSL_BUILD_DIR/include" \
-      SSL_LIB="$OPENSSL_BUILD_DIR/lib64" \
+      ZLIB_LDFLAGS="-static" \
+      ZLIB_INC="${ZLIB_BUILD_DIR}/include" \
+      ZLIB_LIB="${ZLIB_BUILD_DIR}/lib" \
       USE_ZLIB=1 \
-      ZLIB_LIB="$ZLIB_BUILD_DIR/lib" \
-      ZLIB_INC="$ZLIB_BUILD_DIR/include" \
-      USE_STATIC_PCRE2=1 \
-      PCRE2_LIB="$PCRE2_BUILD_DIR/lib" \
-      PCRE2_INC="$PCRE2_BUILD_DIR/include" \
-      LDFLAGS="-static -pthread -ldl"
+      SSL_LDFLAGS="-static" \
+      SSL_INC="${OPENSSL_BUILD_DIR}/include" \
+      SSL_LIB="${OPENSSL_BUILD_DIR}/lib64" \
+      USE_OPENSSL=1 \
+      PCRE2_INC="${PCRE2_BUILD_DIR}/include" \
+      PCRE2_LIB="${PCRE2_BUILD_DIR}/lib" \
+      USE_STATIC_PCRE2=1
 
 
+      #LIBCRYPT_LDFLAGS="-static -l:libcrypt.a" \
+      #USE_CRYPT_H=1 \
+      #USE_LIBCRYPT=1
+
+      #LDFLAGS="-Wl,-Bstatic -l:libcrypt.a -Wl,-Bdynamic"
+
+
+      # LDFLAGS="-static -pthread -ldl"
       #ADDLIB="-ldl -lzlib"
       #LUA_INC="/usr/include/$LUA_VERSION" \
       #LUA_LDFLAGS="-L/usr/lib/$LUA_VERSION" \
@@ -320,17 +339,7 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-    bash "${SELF_PATH}/build-static-lib-pcre2.sh" || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        return $FUNC_EXIT_CODE
-    fi
-
-    bash "${SELF_PATH}/build-static-lib-zlib.sh" || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        return $FUNC_EXIT_CODE
-    fi
-
-    bash "${SELF_PATH}/build-static-lib-openssl.sh" || FUNC_EXIT_CODE=$?
+    build_libraries || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi

@@ -135,7 +135,7 @@ function build_static_library() {
 # Ref: https://github.com/openssl/openssl/blob/master/Configure
 function build_x86_64() {
 
-    export OPENSSL_BUILD_DIR="${SELF_PATH}/../${LAST_RELEASE}/build"
+    export OPENSSL_BUILD_DIR="${SELF_PATH}/../libs/build/${LAST_RELEASE}"
 
     mkdir -p "${OPENSSL_BUILD_DIR}" || FUNC_EXIT_CODE=$?
 
@@ -188,11 +188,6 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-#    install_dependencies || FUNC_EXIT_CODE=$?
-#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-#        return $FUNC_EXIT_CODE
-#    fi
-
     get_last_openssl_release || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         if [ $FUNC_EXIT_CODE -eq 1 ]; then
@@ -208,6 +203,7 @@ function main() {
 
     ls -la
     ls -la "$OPENSSL_BUILD_DIR"
+    echo "$OPENSSL_BUILD_DIR"
 
     echo -e "\n#### End of: Build static library openssl script ####"
     echo -e "################################################################"

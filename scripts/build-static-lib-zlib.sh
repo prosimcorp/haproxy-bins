@@ -57,7 +57,7 @@ function check_env() {
 #
 function get_last_zlib_release() {
     echo -e "\n================ Get last release ================\n"
-    local FUNC_EXIT_CODE
+    local FUNC_EXIT_CODE=0
 
     # Get last release tag
     LAST_RELEASE=$(git ls-remote --heads --tags "https://github.com/madler/zlib.git" | \

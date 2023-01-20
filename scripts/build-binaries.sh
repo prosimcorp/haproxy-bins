@@ -104,14 +104,14 @@ function build_libraries() {
     local FUNC_EXIT_CODE=0
 
     # Create the directory that contains the build of all libraries
-    mkdir -p "${SELF_PATH}/libs/build" || FUNC_EXIT_CODE=$?
+    mkdir -p "${SELF_PATH}/../libs/build" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Creation of libs/build directory fails."
         return $FUNC_EXIT_CODE
     fi
 
     # Create a file to store data about lib versions
-    touch "${SELF_PATH}/libs/info"
+    touch "${SELF_PATH}/../libs/info"
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Creation of libs info file fails."
         return $FUNC_EXIT_CODE
@@ -260,11 +260,18 @@ function build_binary() {
 
 #
 function build_x86_64() {
+    # Don't worry about messages: 'warning: command substitution: ignored null byte in input'
+    # Ref: https://unix.stackexchange.com/a/683824
     ZLIB_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "zlib-*" -print0)"
     PCRE2_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "pcre2-*" -print0)"
     OPENSSL_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "openssl-*" -print0)"
 
+    # TODO: Change this to a function
+    mkdir -p "${SELF_PATH}/../libs/glibc/"
+    cp /usr/lib/x86_64-linux-gnu/*.a "${SELF_PATH}"/../libs/glibc/
+
     # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
+    # Ref: make opts
     make -j"$(nproc)" \
       TARGET=linux-glibc \
       ARCH=x86_64 \
@@ -278,24 +285,8 @@ function build_x86_64() {
       USE_OPENSSL=1 \
       PCRE2_INC="${PCRE2_BUILD_DIR}/include" \
       PCRE2_LIB="${PCRE2_BUILD_DIR}/lib" \
-      USE_STATIC_PCRE2=1
-
-
-      #LIBCRYPT_LDFLAGS="-static -l:libcrypt.a" \
-      #USE_CRYPT_H=1 \
-      #USE_LIBCRYPT=1
-
-      #LDFLAGS="-Wl,-Bstatic -l:libcrypt.a -Wl,-Bdynamic"
-
-
-      # LDFLAGS="-static -pthread -ldl"
-      #ADDLIB="-ldl -lzlib"
-      #LUA_INC="/usr/include/$LUA_VERSION" \
-      #LUA_LDFLAGS="-L/usr/lib/$LUA_VERSION" \
-      #OPTIONS_LDFLAGS="" || FUNC_EXIT_CODE=$?
-#      ZLIB_LIB="libz.a" \
-#      USE_LUA=1 \
-#      LUA_LD_FLAGS="-lz -L/usr/lib/$LUA_VERSION -static" || FUNC_EXIT_CODE=$?
+      USE_STATIC_PCRE2=1 \
+      LDFLAGS="-L${SELF_PATH}/../libs/glibc/"
 
     ldd haproxy
 

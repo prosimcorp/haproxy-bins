@@ -58,7 +58,7 @@ function check_env() {
 #
 function get_last_lua_release() {
     echo -e "\n================ Get last release ================\n"
-    local FUNC_EXIT_CODE
+    local FUNC_EXIT_CODE=0
 
     # Get last release tag
     LAST_RELEASE=$(git ls-remote --heads --tags "https://github.com/lua/lua.git" | \
@@ -176,7 +176,7 @@ function main() {
 #        return $FUNC_EXIT_CODE
 #    fi
 
-    get_last_zlib_release || FUNC_EXIT_CODE=$?
+    get_last_lua_release || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         if [ $FUNC_EXIT_CODE -eq 1 ]; then
             return 0

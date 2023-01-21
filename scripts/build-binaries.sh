@@ -74,21 +74,10 @@ function install_dependencies() {
         return $FUNC_EXIT_CODE
     fi
 
-    #
-    LUA_PACKAGE=$(sudo apt-cache search -q 'lua[0-9].[0-9]-dev' | sort | tail -1 | cut -d' ' -f1)
-    export LUA_VERSION=$(echo "${LUA_PACKAGE/-*}" | sed 's/lib//' | xargs)
-
     sudo apt-get install --assume-yes --quiet \
       linux-headers-"$(uname -r)" \
       build-essential \
       wget || FUNC_EXIT_CODE=$?
-
-      #musl-dev \
-      #zlib1g-dev lua-zlib-dev \
-      #libssl-dev \
-      #libquickfix-dev \
-      #"${LUA_PACKAGE}"  \
-      #libpcre2-dev lua-rex-pcre2-dev\
 
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Dependencies installation fails."
@@ -130,6 +119,11 @@ function build_libraries() {
     fi
 
     bash "${SELF_PATH}/build-static-lib-openssl.sh" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        return $FUNC_EXIT_CODE
+    fi
+
+    bash "${SELF_PATH}/build-static-lib-lua.sh" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi
@@ -265,6 +259,7 @@ function build_x86_64() {
     ZLIB_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "zlib-*" -print0)"
     PCRE2_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "pcre2-*" -print0)"
     OPENSSL_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "openssl-*" -print0)"
+    LUA_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "lua-*" -print0)"
 
     # TODO: Change this to a function
     mkdir -p "${SELF_PATH}/../libs/glibc/"

@@ -72,6 +72,13 @@ function get_last_zlib_release() {
         return 2
     fi
 
+    # Create temporary directory
+    mkdir -p "${TMP_PATH}" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Creation of temporary directory fails."
+        return $FUNC_EXIT_CODE
+    fi
+
     # Move to temporary directory
     cd "${TMP_PATH}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
@@ -138,7 +145,6 @@ function build_x86_64() {
     export ZLIB_BUILD_DIR="${SELF_PATH}/../libs/build/zlib-${LAST_RELEASE}"
 
     mkdir -p "${ZLIB_BUILD_DIR}" || FUNC_EXIT_CODE=$?
-
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Creation of directory for building ZLIB fails."
         return $FUNC_EXIT_CODE

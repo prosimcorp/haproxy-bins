@@ -199,6 +199,13 @@ function download_haproxy_code() {
     echo -e "\n================ Download haproxy code ================\n"
     local FUNC_EXIT_CODE=0
 
+    # Create temporary directory
+    mkdir -p "${TMP_PATH}" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Creation of temporary directory fails."
+        return $FUNC_EXIT_CODE
+    fi
+
     # Move to temporary directory
     cd "${TMP_PATH}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then

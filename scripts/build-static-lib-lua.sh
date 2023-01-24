@@ -69,7 +69,7 @@ function get_last_lua_release() {
       sort --version-sort | \
       tail -n1 | xargs)
     if [ -z "${LAST_RELEASE}" ]; then
-        echo -e "[X] Get last release tag of Zlib repository fails."
+        echo -e "[X] Get last release tag of lua repository fails."
         return 2
     fi
 
@@ -158,6 +158,12 @@ function build_x86_64() {
     make -j"$(nproc)" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Execution of makefile fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    make -j"$(nproc)" install INSTALL_TOP="${LUA_BUILD_DIR}" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Installing crafted files of makefile fails."
         return $FUNC_EXIT_CODE
     fi
 

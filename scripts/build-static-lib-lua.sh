@@ -3,6 +3,7 @@ set -o pipefail
 
 # Defined to avoid relative-pathing issues
 SELF_PATH=$(cd "$(dirname "$0")" || echo "."; pwd)
+TMP_PATH="${SELF_PATH}/../tmp"
 
 ########################################################################################################################
 ### GET SCRIPT PARAMETERS ###
@@ -75,6 +76,13 @@ function get_last_lua_release() {
     # Set names
     LUA_TAR_NAME="lua-${LAST_RELEASE}.tar.gz"
     LUA_DIR_NAME="lua-${LAST_RELEASE}"
+
+    # Move to temporary directory
+    cd "${TMP_PATH}" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Moving to temporary directory fails."
+        return $FUNC_EXIT_CODE
+    fi
 
     # Download the package
     wget --quiet --output-document "${LUA_TAR_NAME}" \

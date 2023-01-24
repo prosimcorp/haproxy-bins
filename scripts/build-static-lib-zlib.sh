@@ -3,6 +3,7 @@ set -o pipefail
 
 # Defined to avoid relative-pathing issues
 SELF_PATH=$(cd $(dirname "$0"); pwd)
+TMP_PATH="${SELF_PATH}/../tmp"
 
 ########################################################################################################################
 ### GET SCRIPT PARAMETERS ###
@@ -71,8 +72,15 @@ function get_last_zlib_release() {
         return 2
     fi
 
+    # Move to temporary directory
+    cd "${TMP_PATH}" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Moving to temporary directory fails."
+        return $FUNC_EXIT_CODE
+    fi
+
     # Download the package
-    wget -q "https://github.com/madler/zlib/releases/download/v${LAST_RELEASE}/zlib-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    wget --quiet "https://github.com/madler/zlib/releases/download/v${LAST_RELEASE}/zlib-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Download of 'zlib-${LAST_RELEASE}.tar.gz' fails."
         return $FUNC_EXIT_CODE

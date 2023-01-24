@@ -3,6 +3,7 @@ set -o pipefail
 
 # Defined to avoid relative-pathing issues
 SELF_PATH=$(cd $(dirname "$0"); pwd)
+TMP_PATH="${SELF_PATH}/../tmp"
 
 ########################################################################################################################
 ### GET SCRIPT PARAMETERS ###
@@ -69,6 +70,13 @@ function get_last_openssl_release() {
     if [ -z "${LAST_RELEASE}" ]; then
         echo -e "[X] Get last release tag of Zlib repository fails."
         return 2
+    fi
+
+    # Move to temporary directory
+    cd "${TMP_PATH}" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Moving to temporary directory fails."
+        return $FUNC_EXIT_CODE
     fi
 
     # Download the package

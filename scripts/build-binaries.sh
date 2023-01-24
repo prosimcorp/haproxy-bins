@@ -3,6 +3,7 @@ set -o pipefail
 
 # Defined to avoid relative-pathing issues
 SELF_PATH=$(cd $(dirname "$0"); pwd)
+TMP_PATH="${SELF_PATH}/../tmp"
 
 export PCRE2_BUILD_DIR
 export ZLIB_BUILD_DIR
@@ -198,6 +199,13 @@ function download_haproxy_code() {
     echo -e "\n================ Download haproxy code ================\n"
     local FUNC_EXIT_CODE=0
 
+    # Move to temporary directory
+    cd "${TMP_PATH}" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Moving to temporary directory fails."
+        return $FUNC_EXIT_CODE
+    fi
+
     # Download the package
     # Ref: # http://www.haproxy.org/download/2.7/src/haproxy-2.7.1.tar.gz
     wget -q "http://www.haproxy.org/download/${LAST_MINOR}/src/haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
@@ -233,7 +241,11 @@ function patch_haproxy_makefile() {
     # shellcheck disable=SC2016
     FLAGS_TO_PATCH=(-lcrypt -ldl -lm -lrt -lnetwork -lnsl -lsocket -lz -lpthread -lssl -lcrypto -lwolfssl -lda -lwurfl -lsystemd -latomic)
 
-    HAPROXY_BUILD_DIR="$(find "${SELF_PATH}/" -maxdepth 1 -type d -name "haproxy-*" -print0)"
+    HAPROXY_BUILD_DIR="$(find "${TMP_PATH}/" -maxdepth 1 -type d -name "haproxy-*" -print0)"
+
+    # DEBUG:
+    echo "${HAPROXY_BUILD_DIR}"
+    ls "${HAPROXY_BUILD_DIR}"
 
     # Replace each dynamic library-related flag with its static counterpart
     for FLAG in "${FLAGS_TO_PATCH[@]}"

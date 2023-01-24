@@ -92,8 +92,7 @@ function get_last_lua_release() {
     fi
 
     # Download the package
-    wget --quiet --output-document "${LUA_TAR_NAME}" \
-      "https://codeload.github.com/lua/lua/tar.gz/refs/tags/v${LAST_RELEASE}" || FUNC_EXIT_CODE=$?
+    wget --quiet "http://www.lua.org/ftp/${LUA_TAR_NAME}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Download of '${LUA_TAR_NAME}' fails."
         return $FUNC_EXIT_CODE
@@ -183,14 +182,6 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-    # TODO: manage the libreadline dependency
-    # The lua library have readline library as a dependency
-
-#    install_dependencies || FUNC_EXIT_CODE=$?
-#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-#        return $FUNC_EXIT_CODE
-#    fi
-
     get_last_lua_release || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         if [ $FUNC_EXIT_CODE -eq 1 ]; then
@@ -203,9 +194,6 @@ function main() {
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi
-
-    ls -la
-    ls -la "$ZLIB_BUILD_DIR"
 
     echo -e "\n#### End of: Build static library lua script ####"
     echo -e "################################################################"

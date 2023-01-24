@@ -250,10 +250,6 @@ function patch_haproxy_makefile() {
 
     HAPROXY_BUILD_DIR="$(find "${TMP_PATH}/" -maxdepth 1 -type d -name "haproxy-*" -print0)"
 
-    # DEBUG:
-    echo "${HAPROXY_BUILD_DIR}"
-    ls "${HAPROXY_BUILD_DIR}"
-
     # Replace each dynamic library-related flag with its static counterpart
     for FLAG in "${FLAGS_TO_PATCH[@]}"
     do
@@ -298,10 +294,6 @@ function build_x86_64() {
     PCRE2_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "pcre2-*" -print0)"
     OPENSSL_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "openssl-*" -print0)"
     LUA_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "lua-*" -print0)"
-
-    # TODO: Change this to a function
-    mkdir -p "${SELF_PATH}/../libs/glibc/"
-    cp /usr/lib/x86_64-linux-gnu/*.a "${SELF_PATH}"/../libs/glibc/
 
     # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
     # Ref: make opts

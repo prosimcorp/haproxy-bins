@@ -2,7 +2,7 @@
 set -o pipefail
 
 # Defined to avoid relative-pathing issues
-SELF_PATH=$(cd $(dirname "$0"); pwd)
+SELF_PATH=$(cd "$(dirname "$0")" || echo "."; pwd)
 TMP_PATH="${SELF_PATH}/../tmp"
 
 export PCRE2_BUILD_DIR
@@ -124,10 +124,10 @@ function build_libraries() {
         return $FUNC_EXIT_CODE
     fi
 
-#    bash "${SELF_PATH}/build-static-lib-lua.sh" || FUNC_EXIT_CODE=$?
-#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-#        return $FUNC_EXIT_CODE
-#    fi
+    bash "${SELF_PATH}/build-static-lib-lua.sh" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        return $FUNC_EXIT_CODE
+    fi
 
     return 0
 }
@@ -245,10 +245,10 @@ function patch_haproxy_makefile() {
     echo -e "\n================ Patch Haproxy makefile ================\n"
     local FUNC_EXIT_CODE=0
 
-    # shellcheck disable=SC2016
-    FLAGS_TO_PATCH=(-lcrypt -ldl -lm -lrt -lnetwork -lnsl -lsocket -lz -lpthread -lssl -lcrypto -lwolfssl -lda -lwurfl -lsystemd -latomic)
+    # 'libm' (-lm) is not included in the following list due to it would require to link statically 'libc' too (-lc)
+    FLAGS_TO_PATCH=(-lcrypt -ldl -lrt -lnetwork -lnsl -lsocket -lz -lpthread -lssl -lcrypto -lwolfssl -lda -lwurfl -lsystemd -latomic '-l\$\(LUA_LIB_NAME\)')
 
-    HAPROXY_BUILD_DIR="$(find "${TMP_PATH}/" -maxdepth 1 -type d -name "haproxy-*" -print0)"
+    HAPROXY_BUILD_DIR="$(find "${TMP_PATH}/" -maxdepth 1 -type d -name "haproxy-*" -print0 | xargs --null)"
 
     # Replace each dynamic library-related flag with its static counterpart
     for FLAG in "${FLAGS_TO_PATCH[@]}"
@@ -290,16 +290,24 @@ function build_binary() {
 function build_x86_64() {
     # Don't worry about messages: 'warning: command substitution: ignored null byte in input'
     # Ref: https://unix.stackexchange.com/a/683824
-    ZLIB_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "zlib-*" -print0)"
-    PCRE2_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "pcre2-*" -print0)"
-    OPENSSL_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "openssl-*" -print0)"
-    LUA_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "lua-*" -print0)"
+    ZLIB_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "zlib-*" -print0 | xargs --null)"
+    PCRE2_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "pcre2-*" -print0 | xargs --null)"
+    OPENSSL_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "openssl-*" -print0 | xargs --null)"
+    LUA_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "lua-*" -print0 | xargs --null)"
 
     # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
     # Ref: make opts
     make -j"$(nproc)" \
       TARGET=linux-glibc \
       ARCH=x86_64 \
+      USE_LIBCRYPT=1 \
+      USE_CRYPT_H=1 \
+      USE_THREAD=1 \
+      USE_GETADDRINFO=1 \
+      USE_TFO=1 \
+      USE_NS=1 \
+      USE_PROMEX=1 \
+      USE_SHM_OPEN=1 \
       ZLIB_INC="${ZLIB_BUILD_DIR}/include" \
       ZLIB_LIB="${ZLIB_BUILD_DIR}/lib" \
       USE_ZLIB=1 \
@@ -309,12 +317,9 @@ function build_x86_64() {
       PCRE2_INC="${PCRE2_BUILD_DIR}/include" \
       PCRE2_LIB="${PCRE2_BUILD_DIR}/lib" \
       USE_STATIC_PCRE2=1 \
-      LUA_LIB_NAME="lua" \
       LUA_INC="${LUA_BUILD_DIR}/include" \
       LUA_LIB="${LUA_BUILD_DIR}/lib" \
-      USE_LUA=1 \
-      USE_LIBCRYPT=1 \
-      USE_CRYPT_H=1
+      USE_LUA=1
 
     ldd haproxy
 

@@ -309,6 +309,7 @@ function build_x86_64() {
       PCRE2_INC="${PCRE2_BUILD_DIR}/include" \
       PCRE2_LIB="${PCRE2_BUILD_DIR}/lib" \
       USE_STATIC_PCRE2=1 \
+      LUA_LIB_NAME="lua" \
       LUA_INC="${LUA_BUILD_DIR}/include" \
       LUA_LIB="${LUA_BUILD_DIR}/lib" \
       USE_LUA=1 \

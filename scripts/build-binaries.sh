@@ -123,10 +123,10 @@ function build_libraries() {
         return $FUNC_EXIT_CODE
     fi
 
-    bash "${SELF_PATH}/build-static-lib-lua.sh" || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        return $FUNC_EXIT_CODE
-    fi
+#    bash "${SELF_PATH}/build-static-lib-lua.sh" || FUNC_EXIT_CODE=$?
+#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+#        return $FUNC_EXIT_CODE
+#    fi
 
     return 0
 }
@@ -223,6 +223,25 @@ function download_haproxy_code() {
     return 0
 }
 
+# Don't be scared, sweet child. The problem is Haproxy maintainers are not prepared
+# to give the users the option to statically link everything. We are here to make your
+# wet wishes real. For that, we have to patch some things, and diff+patch is not enough.
+function patch_haproxy_makefile() {
+    echo -e "\n================ Patch Haproxy makefile ================\n"
+    local FUNC_EXIT_CODE=0
+
+    # shellcheck disable=SC2016
+    FLAGS_TO_PATCH=(-lcrypt -ldl -lm -lrt -lnetwork -lnsl -lsocket -lz -lpthread -lssl -lcrypto -lwolfssl -lda -lwurfl -lsystemd -latomic)
+
+    HAPROXY_BUILD_DIR="$(find "${SELF_PATH}/" -maxdepth 1 -type d -name "haproxy-*" -print0)"
+
+    # Replace each dynamic library-related flag with its static counterpart
+    for FLAG in "${FLAGS_TO_PATCH[@]}"
+    do
+        perl -pi.back -e "s/(?<![\w])${FLAG}(?![\w])/-Wl,-Bstatic ${FLAG} -Wl,-Bdynamic /g;" "${HAPROXY_BUILD_DIR}/Makefile"
+    done
+}
+
 #
 function build_binary() {
   echo -e "\n================ Build binary ================\n"
@@ -270,18 +289,17 @@ function build_x86_64() {
     make -j"$(nproc)" \
       TARGET=linux-glibc \
       ARCH=x86_64 \
-      ZLIB_LDFLAGS="-static" \
       ZLIB_INC="${ZLIB_BUILD_DIR}/include" \
       ZLIB_LIB="${ZLIB_BUILD_DIR}/lib" \
       USE_ZLIB=1 \
-      SSL_LDFLAGS="-static" \
       SSL_INC="${OPENSSL_BUILD_DIR}/include" \
       SSL_LIB="${OPENSSL_BUILD_DIR}/lib64" \
       USE_OPENSSL=1 \
       PCRE2_INC="${PCRE2_BUILD_DIR}/include" \
       PCRE2_LIB="${PCRE2_BUILD_DIR}/lib" \
       USE_STATIC_PCRE2=1 \
-      LDFLAGS="-L${SELF_PATH}/../libs/glibc/"
+      USE_LIBCRYPT=1 \
+      USE_CRYPT_H=1
 
     ldd haproxy
 
@@ -331,6 +349,11 @@ function main() {
     fi
 
     download_haproxy_code || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        return $FUNC_EXIT_CODE
+    fi
+
+    patch_haproxy_makefile || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi

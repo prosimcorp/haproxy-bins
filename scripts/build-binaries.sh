@@ -31,6 +31,7 @@ function usage() {
     echo -e "Usage: bash build-binaries.sh"
     echo -e "Dependencies:"
     echo -e "  Environment variables:"
+    echo -e "    TARGET_BUILD: target you want to build for."
     echo -e "    ARCH_BUILD: architecture that you want to build."
     echo -e "  Flags: (without flags)"
     echo -e "Optionals:"
@@ -44,6 +45,7 @@ function usage() {
 function show_env() {
     echo -e "\n================ Show env variables ================\n"
 
+    echo -e "TARGET_BUILD: ${TARGET_BUILD}"
     echo -e "ARCH_BUILD: ${ARCH_BUILD}"
 }
 
@@ -52,6 +54,11 @@ function check_env() {
     echo -e "\n================ Check env variables ================\n"
 
     # Don't allow empty variables from this point
+    if [ -z "${TARGET_BUILD}" ]; then
+      echo "[X] Check env variables fails.";
+      return 1
+    fi
+
     if [ -z "${ARCH_BUILD}" ]; then
       echo "[X] Check env variables fails.";
       return 1
@@ -75,9 +82,11 @@ function install_dependencies() {
         return $FUNC_EXIT_CODE
     fi
 
+    # gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
     sudo apt-get install --assume-yes --quiet \
       linux-headers-"$(uname -r)" \
       build-essential \
+      crossbuild-essential-arm64 \
       wget || FUNC_EXIT_CODE=$?
 
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
@@ -215,13 +224,13 @@ function download_haproxy_code() {
 
     # Download the package
     # Ref: # http://www.haproxy.org/download/2.7/src/haproxy-2.7.1.tar.gz
-    wget -q "http://www.haproxy.org/download/${LAST_MINOR}/src/haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    wget --timestamping --quiet "http://www.haproxy.org/download/${LAST_MINOR}/src/haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Download of 'haproxy-${LAST_RELEASE}.tar.gz' fails."
         return $FUNC_EXIT_CODE
     fi
 
-    # Untar the last release
+    # Uncompress the last release
     tar -xvf "haproxy-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Untar of 'haproxy-${LAST_RELEASE}.tar.gz' fails."
@@ -257,46 +266,45 @@ function patch_haproxy_makefile() {
     done
 }
 
-#
+# Build binary files according to the architecture and target
 function build_binary() {
-  echo -e "\n================ Build binary ================\n"
-  local  FUNC_EXIT_CODE=0
+    echo -e "\n================ Build binary ================\n"
+    local  FUNC_EXIT_CODE=0
+    local TARGET="${TARGET_BUILD}_${ARCH_BUILD}"
 
-  case "${ARCH_BUILD}" in
-
-    x86_64)
-      build_x86_64 || FUNC_EXIT_CODE=$?
-      ;;
-
-    arm64)
-      build_arm64 || FUNC_EXIT_CODE=$?
-      ;;
-
-    *)
-      printf "%s" "[INFO] Env variable ARCH_BUILD not defined"
-      return 1
-      ;;
-  esac
-
-  if [ $FUNC_EXIT_CODE -ne 0 ]; then
-      echo -e "[X] Build in '${ARCH_BUILD}' fails."
-      return $FUNC_EXIT_CODE
-  fi
-
-  return 0
-}
-
-#
-function build_x86_64() {
-    # Don't worry about messages: 'warning: command substitution: ignored null byte in input'
-    # Ref: https://unix.stackexchange.com/a/683824
     ZLIB_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "zlib-*" -print0 | xargs --null)"
     PCRE2_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "pcre2-*" -print0 | xargs --null)"
     OPENSSL_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "openssl-*" -print0 | xargs --null)"
     LUA_BUILD_DIR="$(find "${SELF_PATH}/../libs/build/" -maxdepth 1 -type d -name "lua-*" -print0 | xargs --null)"
 
+    case "${TARGET}" in
+
+      linux_x86_64)
+        build_linux_x86_64 || FUNC_EXIT_CODE=$?
+        ;;
+
+      linux_aarch64)
+        build_linux_aarch64 || FUNC_EXIT_CODE=$?
+        ;;
+
+      *)
+        printf "%s" "[INFO] Env variable ARCH_BUILD not defined"
+        return 1
+        ;;
+    esac
+
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Build in '${ARCH_BUILD}' fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    return 0
+}
+
+#
+function build_linux_x86_64() {
+
     # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
-    # Ref: make opts
     make -j"$(nproc)" \
       TARGET=linux-glibc \
       ARCH=x86_64 \
@@ -327,8 +335,35 @@ function build_x86_64() {
 }
 
 #
-function build_arm64() {
-    return 0
+function build_linux_aarch64() {
+
+    # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
+    # TODO: Fix libcrypt not found on cross-compile to allow usage of options: USE_LIBCRYPT=1, USE_CRYPT_H=1
+    make -j"$(nproc)" CC="aarch64-linux-gnu-gcc" \
+      TARGET=linux-glibc \
+      ARCH_FLAGS="" \
+      USE_THREAD=1 \
+      USE_GETADDRINFO=1 \
+      USE_TFO=1 \
+      USE_NS=1 \
+      USE_PROMEX=1 \
+      USE_SHM_OPEN=1 \
+      ZLIB_INC="${ZLIB_BUILD_DIR}/include" \
+      ZLIB_LIB="${ZLIB_BUILD_DIR}/lib" \
+      USE_ZLIB=1 \
+      SSL_INC="${OPENSSL_BUILD_DIR}/include" \
+      SSL_LIB="${OPENSSL_BUILD_DIR}/lib" \
+      USE_OPENSSL=1 \
+      PCRE2_INC="${PCRE2_BUILD_DIR}/include" \
+      PCRE2_LIB="${PCRE2_BUILD_DIR}/lib" \
+      USE_STATIC_PCRE2=1 \
+      LUA_INC="${LUA_BUILD_DIR}/include" \
+      LUA_LIB="${LUA_BUILD_DIR}/lib" \
+      USE_LUA=1
+
+    ldd haproxy
+
+    return $FUNC_EXIT_CODE
 }
 
 #
@@ -350,10 +385,10 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-    install_dependencies || FUNC_EXIT_CODE=$?
-    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        return $FUNC_EXIT_CODE
-    fi
+#    install_dependencies || FUNC_EXIT_CODE=$?
+#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+#        return $FUNC_EXIT_CODE
+#    fi
 
     check_last_haproxy_release || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then

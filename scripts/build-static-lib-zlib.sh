@@ -24,6 +24,7 @@ function usage() {
     echo -e "Usage: bash build-static-lib-zlib.sh"
     echo -e "Dependencies:"
     echo -e "  Environment variables:"
+    echo -e "    TARGET_BUILD: target you want to build for."
     echo -e "    ARCH_BUILD: architecture that you want to build."
     echo -e "  Flags: (without flags)"
     echo -e "Optionals:"
@@ -37,6 +38,7 @@ function usage() {
 function show_env() {
     echo -e "\n================ Show env variables ================\n"
 
+    echo -e "TARGET_BUILD: ${TARGET_BUILD}"
     echo -e "ARCH_BUILD: ${ARCH_BUILD}"
 }
 
@@ -45,6 +47,11 @@ function check_env() {
     echo -e "\n================ Check env variables ================\n"
 
     # Don't allow empty variables from this point
+    if [ -z "${TARGET_BUILD}" ]; then
+      echo "[X] Check env variables fails.";
+      return 1
+    fi
+
     if [ -z "${ARCH_BUILD}" ]; then
       echo "[X] Check env variables fails.";
       return 1
@@ -87,13 +94,13 @@ function get_last_zlib_release() {
     fi
 
     # Download the package
-    wget --quiet "https://github.com/madler/zlib/releases/download/v${LAST_RELEASE}/zlib-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    wget --timestamping --quiet "https://github.com/madler/zlib/releases/download/v${LAST_RELEASE}/zlib-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Download of 'zlib-${LAST_RELEASE}.tar.gz' fails."
         return $FUNC_EXIT_CODE
     fi
 
-    # Untar the last release
+    # Uncompress the last release
     tar -xvf "zlib-${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Untar of 'zlib-${LAST_RELEASE}.tar.gz' fails."
@@ -110,37 +117,11 @@ function get_last_zlib_release() {
     return 0
 }
 
-#
+# Build binary files according to the architecture and target
 function build_static_library() {
-  echo -e "\n================ Build static library ================\n"
-  local  FUNC_EXIT_CODE=0
-
-  case "${ARCH_BUILD}" in
-
-    x86_64)
-      build_x86_64 || FUNC_EXIT_CODE=$?
-      ;;
-
-    arm64)
-      build_arm64 || FUNC_EXIT_CODE=$?
-      ;;
-
-    *)
-      printf "%s" "[X] Env variable ARCH_BUILD not defined"
-      return 1
-      ;;
-  esac
-
-  if [ $FUNC_EXIT_CODE -ne 0 ]; then
-      echo -e "[X] Build in '${ARCH_BUILD}' fails."
-      return $FUNC_EXIT_CODE
-  fi
-
-  return 0
-}
-
-#
-function build_x86_64() {
+    echo -e "\n================ Build static library ================\n"
+    local FUNC_EXIT_CODE=0
+    local TARGET="${TARGET_BUILD}_${ARCH_BUILD}"
 
     export ZLIB_BUILD_DIR="${SELF_PATH}/../libs/build/zlib-${LAST_RELEASE}"
 
@@ -158,27 +139,66 @@ function build_x86_64() {
          return $FUNC_EXIT_CODE
      fi
 
-    make -j"$(nproc)" || FUNC_EXIT_CODE=$?
+    case "${TARGET}" in
 
+      linux_x86_64)
+        build_linux_x86_64 || FUNC_EXIT_CODE=$?
+        ;;
+
+      linux_aarch64)
+        build_linux_aarch64 || FUNC_EXIT_CODE=$?
+        ;;
+
+      *)
+        printf "%s" "[X] Env variable ARCH_BUILD not defined"
+        return 1
+        ;;
+    esac
+
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Build in '${ARCH_BUILD}' fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    return 0
+}
+
+#
+function build_linux_x86_64() {
+    local FUNC_EXIT_CODE=0
+
+    make -j"$(nproc)" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Execution of makefile fails."
         return $FUNC_EXIT_CODE
     fi
 
-
     make -j"$(nproc)" install || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Execution of makefile install stage fails."
+        return $FUNC_EXIT_CODE
+    fi
 
+  return $FUNC_EXIT_CODE
+}
+
+#
+function build_linux_aarch64() {
+    local FUNC_EXIT_CODE=0
+
+    make -j"$(nproc)" CC="aarch64-linux-gnu-gcc" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Execution of makefile fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    make -j"$(nproc)" install CC="aarch64-linux-gnu-gcc" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Execution of makefile install stage fails."
         return $FUNC_EXIT_CODE
     fi
 
     return $FUNC_EXIT_CODE
-}
-
-#
-function build_arm64() {
-    return 0
 }
 
 #
@@ -194,11 +214,6 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
-#    install_dependencies || FUNC_EXIT_CODE=$?
-#    if [ $FUNC_EXIT_CODE -ne 0 ]; then
-#        return $FUNC_EXIT_CODE
-#    fi
-
     get_last_zlib_release || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         if [ $FUNC_EXIT_CODE -eq 1 ]; then
@@ -211,9 +226,6 @@ function main() {
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi
-
-    ls -la
-    ls -la "$ZLIB_BUILD_DIR"
 
     echo -e "\n#### End of: Build static library zlib script ####"
     echo -e "################################################################"

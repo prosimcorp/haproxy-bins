@@ -25,6 +25,7 @@ function usage() {
     echo -e "Usage: bash build-static-lib-lua.sh"
     echo -e "Dependencies:"
     echo -e "  Environment variables:"
+    echo -e "    TARGET_BUILD: target you want to build for."
     echo -e "    ARCH_BUILD: architecture that you want to build."
     echo -e "  Flags: (without flags)"
     echo -e "Optionals:"
@@ -38,6 +39,7 @@ function usage() {
 function show_env() {
     echo -e "\n================ Show env variables ================\n"
 
+    echo -e "TARGET_BUILD: ${TARGET_BUILD}"
     echo -e "ARCH_BUILD: ${ARCH_BUILD}"
 }
 
@@ -46,6 +48,11 @@ function check_env() {
     echo -e "\n================ Check env variables ================\n"
 
     # Don't allow empty variables from this point
+    if [ -z "${TARGET_BUILD}" ]; then
+      echo "[X] Check env variables fails.";
+      return 1
+    fi
+
     if [ -z "${ARCH_BUILD}" ]; then
       echo "[X] Check env variables fails.";
       return 1
@@ -56,7 +63,7 @@ function check_env() {
     return 0
 }
 
-#
+# Download last's release tarball and store it into temporary directory, uncompressed.
 function get_last_lua_release() {
     echo -e "\n================ Get last release ================\n"
     local FUNC_EXIT_CODE=0
@@ -92,13 +99,13 @@ function get_last_lua_release() {
     fi
 
     # Download the package
-    wget --quiet "http://www.lua.org/ftp/${LUA_TAR_NAME}" || FUNC_EXIT_CODE=$?
+    wget --timestamping --quiet "http://www.lua.org/ftp/${LUA_TAR_NAME}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Download of '${LUA_TAR_NAME}' fails."
         return $FUNC_EXIT_CODE
     fi
 
-    # Untar the last release
+    # Uncompress the last release
     tar -xvf "${LUA_TAR_NAME}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Untar of '${LUA_TAR_NAME}' fails."
@@ -115,37 +122,11 @@ function get_last_lua_release() {
     return 0
 }
 
-#
+# Build binary files according to the architecture and target
 function build_static_library() {
-  echo -e "\n================ Build static library ================\n"
-  local  FUNC_EXIT_CODE=0
-
-  case "${ARCH_BUILD}" in
-
-    x86_64)
-      build_x86_64 || FUNC_EXIT_CODE=$?
-      ;;
-
-    arm64)
-      build_arm64 || FUNC_EXIT_CODE=$?
-      ;;
-
-    *)
-      printf "%s" "[X] Env variable ARCH_BUILD not defined"
-      return 1
-      ;;
-  esac
-
-  if [ $FUNC_EXIT_CODE -ne 0 ]; then
-      echo -e "[X] Build in '${ARCH_BUILD}' fails."
-      return $FUNC_EXIT_CODE
-  fi
-
-  return 0
-}
-
-#
-function build_x86_64() {
+    echo -e "\n================ Build static library ================\n"
+    local  FUNC_EXIT_CODE=0
+    local TARGET="${TARGET_BUILD}_${ARCH_BUILD}"
 
     export LUA_BUILD_DIR="${SELF_PATH}/../libs/build/${LUA_DIR_NAME}"
 
@@ -155,9 +136,24 @@ function build_x86_64() {
         return $FUNC_EXIT_CODE
     fi
 
-    make -j"$(nproc)" || FUNC_EXIT_CODE=$?
+    case "${TARGET}" in
+
+      linux_x86_64)
+        build_linux_x86_64 || FUNC_EXIT_CODE=$?
+        ;;
+
+      linux_aarch64)
+        build_linux_aarch64 || FUNC_EXIT_CODE=$?
+        ;;
+
+      *)
+        printf "%s" "[X] Env variable for TARGET_BUILD or ARCH_BUILD not defined"
+        return 1
+        ;;
+    esac
+
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
-        echo -e "[X] Execution of makefile fails."
+        echo -e "[X] Build in '${TARGET}' fails."
         return $FUNC_EXIT_CODE
     fi
 
@@ -167,12 +163,30 @@ function build_x86_64() {
         return $FUNC_EXIT_CODE
     fi
 
+    return 0
+}
+
+# Execute binary building for linux x86_64
+function build_linux_x86_64() {
+
+    make -j"$(nproc)" PLAT="linux" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Execution of makefile fails."
+        return $FUNC_EXIT_CODE
+    fi
+
     return $FUNC_EXIT_CODE
 }
 
-#
-function build_arm64() {
-    return 0
+# Execute binary building for linux arm64
+function build_linux_aarch64() {
+    make -j"$(nproc)" CC="aarch64-linux-gnu-gcc -std=gnu99" PLAT="linux" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Execution of makefile fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    return $FUNC_EXIT_CODE
 }
 
 #

@@ -24,6 +24,7 @@ function usage() {
     echo -e "Usage: bash build-static-lib-pcre2.sh"
     echo -e "Dependencies:"
     echo -e "  Environment variables:"
+    echo -e "    TARGET_BUILD: target you want to build for."
     echo -e "    ARCH_BUILD: architecture that you want to build."
     echo -e "  Flags: (without flags)"
     echo -e "Optionals:"
@@ -37,6 +38,7 @@ function usage() {
 function show_env() {
     echo -e "\n================ Show env variables ================\n"
 
+    echo -e "TARGET_BUILD: ${TARGET_BUILD}"
     echo -e "ARCH_BUILD: ${ARCH_BUILD}"
 }
 
@@ -45,6 +47,11 @@ function check_env() {
     echo -e "\n================ Check env variables ================\n"
 
     # Don't allow empty variables from this point
+    if [ -z "${TARGET_BUILD}" ]; then
+      echo "[X] Check env variables fails.";
+      return 1
+    fi
+
     if [ -z "${ARCH_BUILD}" ]; then
       echo "[X] Check env variables fails.";
       return 1
@@ -68,7 +75,7 @@ function get_last_pcre2_release() {
       sort --version-sort | \
       tail -n1 | xargs)
     if [ -z "${LAST_RELEASE}" ]; then
-        echo -e "[X] Get last release tag of P repository fails."
+        echo -e "[X] Get last release tag of PCRE2 repository fails."
         return 2
     fi
 
@@ -87,13 +94,13 @@ function get_last_pcre2_release() {
     fi
 
     # Download the package
-    wget -q "https://github.com/PCRE2Project/pcre2/releases/download/${LAST_RELEASE}/${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    wget --timestamping --quiet "https://github.com/PCRE2Project/pcre2/releases/download/${LAST_RELEASE}/${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Download of '${LAST_RELEASE}.tar.gz' fails."
         return $FUNC_EXIT_CODE
     fi
 
-    # Untar the last release
+    # Uncompress the last release
     tar -xvf "${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Untar of '${LAST_RELEASE}.tar.gz' fails."
@@ -110,42 +117,15 @@ function get_last_pcre2_release() {
     return 0
 }
 
-#
+# Build binary files according to the architecture and target
 function build_static_library() {
-  echo -e "\n================ Build static library ================\n"
-  local  FUNC_EXIT_CODE=0
-
-  case "${ARCH_BUILD}" in
-
-    x86_64)
-      build_x86_64 || FUNC_EXIT_CODE=$?
-      ;;
-
-    arm64)
-      build_arm64 || FUNC_EXIT_CODE=$?
-      ;;
-
-    *)
-      printf "%s" "[X] Env variable ARCH_BUILD not defined"
-      return 1
-      ;;
-  esac
-
-  if [ $FUNC_EXIT_CODE -ne 0 ]; then
-      echo -e "[X] Build in '${ARCH_BUILD}' fails."
-      return $FUNC_EXIT_CODE
-  fi
-
-  return 0
-}
-
-#
-function build_x86_64() {
+    echo -e "\n================ Build static library ================\n"
+    local  FUNC_EXIT_CODE=0
+    local TARGET="${TARGET_BUILD}_${ARCH_BUILD}"
 
     export PCRE2_BUILD_DIR="${SELF_PATH}/../libs/build/${LAST_RELEASE}"
 
     mkdir -p "${PCRE2_BUILD_DIR}" || FUNC_EXIT_CODE=$?
-
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Creation of directory for building PCRE2 fails."
         return $FUNC_EXIT_CODE
@@ -154,21 +134,45 @@ function build_x86_64() {
     CFLAGS='-std=c18 -O2 -Wall -Wextra -Wpedantic -Wconversion'
     ./configure --prefix="${PCRE2_BUILD_DIR}" --disable-shared || FUNC_EXIT_CODE=$?
 
-     if [ $FUNC_EXIT_CODE -ne 0 ]; then
-         echo -e "[X] Execution of configuration script fails."
-         return $FUNC_EXIT_CODE
-     fi
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Execution of configuration script fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    case "${TARGET}" in
+
+      linux_x86_64)
+        build_linux_x86_64 || FUNC_EXIT_CODE=$?
+        ;;
+
+      linux_aarch64)
+        build_linux_aarch64 || FUNC_EXIT_CODE=$?
+        ;;
+
+      *)
+        printf "%s" "[X] Env variable ARCH_BUILD not defined"
+        return 1
+        ;;
+    esac
+
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Build in '${ARCH_BUILD}' fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    return 0
+}
+
+#
+function build_linux_x86_64() {
 
     make -j"$(nproc)" || FUNC_EXIT_CODE=$?
-
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Execution of makefile fails."
         return $FUNC_EXIT_CODE
     fi
 
-
     make -j"$(nproc)" install || FUNC_EXIT_CODE=$?
-
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Execution of makefile install stage fails."
         return $FUNC_EXIT_CODE
@@ -178,8 +182,20 @@ function build_x86_64() {
 }
 
 #
-function build_arm64() {
-    return 0
+function build_linux_aarch64() {
+    make -j"$(nproc)" CC="aarch64-linux-gnu-gcc" CET_CFLAGS="" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Execution of makefile fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    make -j"$(nproc)" install CC="aarch64-linux-gnu-gcc" CET_CFLAGS="" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Execution of makefile install stage fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    return $FUNC_EXIT_CODE
 }
 
 #
@@ -207,9 +223,6 @@ function main() {
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi
-
-    ls -la
-    ls -la $PCRE2_BUILD_DIR
 
     echo -e "\n#### End of: Build static library pcre2 script ####"
     echo -e "################################################################"

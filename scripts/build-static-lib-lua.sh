@@ -128,7 +128,7 @@ function build_static_library() {
     local  FUNC_EXIT_CODE=0
     local TARGET="${TARGET_BUILD}_${ARCH_BUILD}"
 
-    export LUA_BUILD_DIR="${SELF_PATH}/../libs/build/${LUA_DIR_NAME}"
+    export LUA_BUILD_DIR="${SELF_PATH}/../libs/${ARCH_BUILD}/${LUA_DIR_NAME}"
 
     mkdir -p "${LUA_BUILD_DIR}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then

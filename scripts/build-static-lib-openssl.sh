@@ -2,7 +2,7 @@
 set -o pipefail
 
 # Defined to avoid relative-pathing issues
-SELF_PATH=$(cd $(dirname "$0"); pwd)
+SELF_PATH=$(cd "$(dirname "$0")" || echo "."; pwd)
 TMP_PATH="${SELF_PATH}/../tmp"
 
 ########################################################################################################################
@@ -137,7 +137,7 @@ function build_static_library() {
     local  FUNC_EXIT_CODE=0
     local TARGET="${TARGET_BUILD}_${ARCH_BUILD}"
 
-    export OPENSSL_BUILD_DIR="${SELF_PATH}/../libs/build/${LAST_RELEASE}"
+    export OPENSSL_BUILD_DIR="${SELF_PATH}/../libs/${ARCH_BUILD}/${LAST_RELEASE}"
 
     mkdir -p "${OPENSSL_BUILD_DIR}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then

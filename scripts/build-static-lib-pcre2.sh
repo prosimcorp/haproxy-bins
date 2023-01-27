@@ -2,7 +2,7 @@
 set -o pipefail
 
 # Defined to avoid relative-pathing issues
-SELF_PATH=$(cd "$(dirname "$0")"; pwd)
+SELF_PATH=$(cd "$(dirname "$0")" || echo "."; pwd)
 TMP_PATH="${SELF_PATH}/../tmp"
 
 ########################################################################################################################
@@ -120,10 +120,10 @@ function get_last_pcre2_release() {
 # Build binary files according to the architecture and target
 function build_static_library() {
     echo -e "\n================ Build static library ================\n"
-    local  FUNC_EXIT_CODE=0
+    local FUNC_EXIT_CODE=0
     local TARGET="${TARGET_BUILD}_${ARCH_BUILD}"
 
-    export PCRE2_BUILD_DIR="${SELF_PATH}/../libs/build/${LAST_RELEASE}"
+    export PCRE2_BUILD_DIR="${SELF_PATH}/../libs/${ARCH_BUILD}/${LAST_RELEASE}"
 
     mkdir -p "${PCRE2_BUILD_DIR}" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then

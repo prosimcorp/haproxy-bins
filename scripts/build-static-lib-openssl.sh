@@ -31,6 +31,7 @@ function usage() {
     echo -e "  Environment variables: (without env variables)"
     echo -e "  Flags:"
     echo -e "    --help,-h: show the script usage."
+    echo -e "    --use-quictls: Use quictls instead of upstream openssl"
     echo -e "################################################################"
 }
 
@@ -66,11 +67,16 @@ function check_env() {
 function get_last_openssl_release() {
     echo -e "\n================ Get last release ================\n"
     local FUNC_EXIT_CODE=0
+    local OPENSSL_LIBRARY="openssl"
+
+    if [ "${FLAG_HELP}" == "--use-quictls" ]; then
+        OPENSSL_LIBRARY="quictls"
+    fi
 
     # Get last release tag
-    LAST_RELEASE=$(git ls-remote --tags "https://github.com/openssl/openssl.git" | \
+    LAST_RELEASE=$(git ls-remote --tags "https://github.com/${OPENSSL_LIBRARY}/openssl.git" | \
       awk '{print $2}' | \
-      grep -E -i '[[:digit:]]{1,3}\.[[:digit:]]{1,3}(\.[[:digit:]]{1,3})?$' | \
+      grep -E -i '[[:digit:]]{1,3}\.[[:digit:]]{1,3}\.[[:digit:]]{1,3}(\+quic[0-9])?$' | \
       sed 's#refs/tags/##' | \
       sort --version-sort | \
       tail -n1 | xargs)
@@ -94,7 +100,7 @@ function get_last_openssl_release() {
     fi
 
     # Download the package
-    wget --timestamping --quiet "https://github.com/openssl/openssl/archive/refs/tags/${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
+    wget --timestamping --quiet "https://github.com/${OPENSSL_LIBRARY}/openssl/archive/refs/tags/${LAST_RELEASE}.tar.gz" || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Download of '${LAST_RELEASE}.tar.gz' fails."
         return $FUNC_EXIT_CODE
@@ -115,7 +121,7 @@ function get_last_openssl_release() {
     fi
 
     # Rename directory because of the prefix
-    mv "openssl-${LAST_RELEASE}" "${LAST_RELEASE}" || FUNC_EXIT_CODE=$?
+    rename "s/^openssl-openssl(.*)/${LAST_RELEASE}/" * || FUNC_EXIT_CODE=$?
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         echo -e "[X] Rename directory to '${LAST_RELEASE}' fails."
         return $FUNC_EXIT_CODE

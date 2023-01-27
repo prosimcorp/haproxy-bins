@@ -23,6 +23,7 @@ jobs:
 
       - name: Execute the script
         env:
+          TARGET_BUILD: linux
           ARCH_BUILD: x86_64
         run: |
           chmod +x ./scripts/build-binaries.sh 

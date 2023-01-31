@@ -298,6 +298,18 @@ function build_binary() {
         return $FUNC_EXIT_CODE
     fi
 
+    mkdir -p "${SELF_PATH}/../build" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Creation of build directory fails."
+        return $FUNC_EXIT_CODE
+    fi
+
+    mv haproxy "${SELF_PATH}/../build/haproxy-${TARGET}" || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        echo -e "[X] Moving built binaries fails."
+        return $FUNC_EXIT_CODE
+    fi
+
     return 0
 }
 
@@ -370,7 +382,7 @@ function build_linux_aarch64() {
 
 #
 function create_release() {
-    ls # To see if everything is fine
+    echo "haproxy: ${LAST_RELEASE}" >> "${SELF_PATH}"/../libs/info
     return 0
 }
 
@@ -426,6 +438,8 @@ function main() {
     if [ $FUNC_EXIT_CODE -ne 0 ]; then
         return $FUNC_EXIT_CODE
     fi
+
+    cat "${SELF_PATH}/../libs/info"
 
     echo -e "\n#### End of: Build binaries script ####"
     echo -e "################################################################"

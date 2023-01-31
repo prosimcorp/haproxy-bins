@@ -199,6 +199,12 @@ function build_linux_aarch64() {
 }
 
 #
+function create_release() {
+    echo "pcre2: ${LAST_RELEASE}" >> "${SELF_PATH}"/../libs/info
+    return 0
+}
+
+#
 function main() {
     echo -e "################################################################"
     echo -e "#### Build static library pcre2 script ####"

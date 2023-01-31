@@ -190,6 +190,12 @@ function build_linux_aarch64() {
 }
 
 #
+function create_release() {
+    echo "lua: ${LAST_RELEASE}" >> "${SELF_PATH}"/../libs/info
+    return 0
+}
+
+#
 function main() {
     echo -e "################################################################"
     echo -e "#### Build static library lua script ####"

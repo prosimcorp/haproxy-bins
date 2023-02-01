@@ -316,7 +316,7 @@ function build_binary() {
 # Ref: https://github.com/haproxy/haproxy/blob/master/Makefile
 function build_linux_x86_64() {
 
-    make -j"$(nproc)" opts \
+    make -j"$(nproc)" \
       TARGET=linux-glibc \
       ARCH=x86_64 \
       USE_THREAD=1 \

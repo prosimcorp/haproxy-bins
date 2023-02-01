@@ -15,29 +15,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-x86-64:
+  build-binaries:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         targets: [ linux ]
-        architectures: [ x86_64 ]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Execute the script
-        env:
-          TARGET_BUILD: ${{ matrix.targets }}
-          ARCH_BUILD: ${{ matrix.architectures }}
-        run: |
-          bash ./scripts/build-binaries.sh
-
-  build-aarch64:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        targets: [ linux ]
-        architectures: [ aarch64 ]
+        architectures: [ x86_64, aarch64]
     steps:
       - name: Checkout
         uses: actions/checkout@v3

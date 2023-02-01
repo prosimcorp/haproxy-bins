@@ -25,9 +25,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Cache Binaries
+        id: cache-binaries
+        uses: actions/cache@v3
+        with:
+          path: ./build
+          key: cached-binaries-${{ github.run_id }}
+
       - name: Execute the script
         env:
           TARGET_BUILD: ${{ matrix.targets }}
           ARCH_BUILD: ${{ matrix.architectures }}
         run: |
           bash ./scripts/build-binaries.sh
+
+      - name: Archive built artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: cached-binaries-${{ github.run_id }}
+          path: ./build
+
+  show-binaries:
+    needs:
+      - build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download archived built artifacts
+        id: download-artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: cached-binaries-${{ github.run_id }}
+
+      - name: List binaries
+        run: |
+          ls ${{steps.download-artifacts.outputs.download-path}}

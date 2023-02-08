@@ -64,13 +64,30 @@ jobs:
     needs:
       - show-binaries
     permissions:
-      # write permission is required to create a github release
       contents: write
-      # write permission is required for autolabeler
-      # otherwise, read permission is required at least
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: release-drafter/release-drafter@v5
+      - name: Download built artifacts
+        id: download-artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: cached-binaries-${{ github.run_id }}
+
+      - name: Create release draft
+        id: create-release-draft
+        uses: release-drafter/release-drafter@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # ${{ steps.create_release.outputs.upload_url }}
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          draft: true
+          body: ${{ steps.create-release-draft.outputs.body }}
+          files: |
+            ${{steps.download-artifacts.outputs.download-path}}/haproxy-linux_x86_64
+            ${{steps.download-artifacts.outputs.download-path}}/haproxy-linux_aarch64

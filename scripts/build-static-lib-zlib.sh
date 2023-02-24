@@ -233,6 +233,11 @@ function main() {
         return $FUNC_EXIT_CODE
     fi
 
+    create_release || FUNC_EXIT_CODE=$?
+    if [ $FUNC_EXIT_CODE -ne 0 ]; then
+        return $FUNC_EXIT_CODE
+    fi
+
     echo -e "\n#### End of: Build static library zlib script ####"
     echo -e "################################################################"
 

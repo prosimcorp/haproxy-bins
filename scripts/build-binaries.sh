@@ -383,6 +383,9 @@ function build_linux_aarch64() {
 #
 function create_release() {
     echo "haproxy: ${LAST_RELEASE}" >> "${SELF_PATH}"/../libs/info
+
+    mv "${SELF_PATH}"/../libs/info "${SELF_PATH}"/../build/VERSIONS
+
     return 0
 }
 

@@ -3,7 +3,7 @@ name: 'Build Binaries'
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 5 * * 0'
 
 permissions:
   contents: read
@@ -76,6 +76,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: cached-binaries-${{ github.run_id }}
+          path: release
 
       - name: Create release draft
         id: draft-release

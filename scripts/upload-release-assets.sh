@@ -64,25 +64,32 @@ function check_env() {
 
 function upload_assets() {
 
+    echo -e "\n================ Upload assets ================\n"
+    local FUNC_EXIT_CODE=0
+
     RELEASE_UPLOAD_URL=$(echo "${RELEASE_UPLOAD_URL}" | sed -e 's#{?name,label}##g' | xargs)
 
-    curl \
-        -X POST \
-        -H "Accept: application/vnd.github+json" \
-        -H "Authorization: Bearer ${GITHUB_TOKEN}"\
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        -H "Content-Type: application/octet-stream" \
-        "${RELEASE_UPLOAD_URL}"?name=haproxy-linux_x86_64 \
-        --data-binary "@${ARTIFACTS_LOCAL_PATH}/haproxy-linux_x86_64"
+    FILES="${ARTIFACTS_LOCAL_PATH}/*"
+    for FILE in $FILES
+    do
+        echo "Processing $FILE file..."
 
-    curl \
-        -X POST \
-        -H "Accept: application/vnd.github+json" \
-        -H "Authorization: Bearer ${GITHUB_TOKEN}"\
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        -H "Content-Type: application/octet-stream" \
-        "${RELEASE_UPLOAD_URL}"?name=haproxy-linux_aarch64 \
-        --data-binary "@${ARTIFACTS_LOCAL_PATH}/haproxy-linux_aarch64"
+        FILE_NAME=$(basename "$FILE")
+
+        curl -S -s -o /dev/null \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}"\
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/octet-stream" \
+            "${RELEASE_UPLOAD_URL}?name=${FILE_NAME}" \
+            --data-binary "@${FILE}" || FUNC_EXIT_CODE=$?
+
+        if [ $FUNC_EXIT_CODE -ne 0 ]; then
+            echo -e "[X] Upload assets failed."
+            return $FUNC_EXIT_CODE
+        fi
+    done
 
   return 0
 }
